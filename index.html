@@ -1,0 +1,3624 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>玄机阁 · 3D易经罗盘</title>
+<style>
+/* ========== 全局重置 ========== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; font-family: "Noto Serif SC", "STSong", "SimSun", serif; color: #e8dcc4; user-select: none; }
+
+/* ========== 3D画布容器 ========== */
+#canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+/* ========== 顶部标题栏 ========== */
+.top-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 32px;
+  background: linear-gradient(180deg, rgba(10,10,30,0.85) 0%, rgba(10,10,30,0) 100%);
+  pointer-events: none;
+}
+.top-bar .title {
+  font-size: 22px; font-weight: 700; letter-spacing: 8px;
+  background: linear-gradient(135deg, #d4af37 0%, #f5e6c8 50%, #d4af37 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(212,175,55,0.3);
+}
+.top-bar .subtitle { font-size: 12px; color: #8a7a5c; letter-spacing: 4px; margin-top: 4px; }
+
+/* ========== 左侧功能导航 ========== */
+.nav-panel {
+  position: fixed; left: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 100; display: flex; flex-direction: column; gap: 12px;
+}
+.nav-btn {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(20,20,45,0.7); border: 1px solid rgba(212,175,55,0.3);
+  color: #d4af37; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s ease; backdrop-filter: blur(8px);
+  font-family: inherit; writing-mode: vertical-rl; letter-spacing: 2px;
+}
+.nav-btn:hover { background: rgba(212,175,55,0.15); border-color: #d4af37; box-shadow: 0 0 20px rgba(212,175,55,0.3); transform: scale(1.08); }
+.nav-btn.active { background: linear-gradient(135deg, rgba(212,175,55,0.3), rgba(180,140,50,0.2)); border-color: #d4af37; color: #fff8e7; box-shadow: 0 0 25px rgba(212,175,55,0.4); }
+
+/* ========== 右侧信息面板 ========== */
+.info-panel {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  width: 340px; max-height: 75vh; z-index: 100;
+  background: linear-gradient(160deg, rgba(15,15,35,0.92) 0%, rgba(20,15,40,0.88) 100%);
+  border: 1px solid rgba(212,175,55,0.25); border-radius: 12px;
+  backdrop-filter: blur(12px); padding: 24px; overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+.info-panel.hidden { transform: translateY(-50%) translateX(400px); opacity: 0; pointer-events: none; }
+.info-panel::-webkit-scrollbar { width: 4px; }
+.info-panel::-webkit-scrollbar-track { background: transparent; }
+.info-panel::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 2px; }
+
+.panel-title {
+  font-size: 18px; font-weight: 700; color: #d4af37; letter-spacing: 4px;
+  text-align: center; margin-bottom: 20px; padding-bottom: 12px;
+  border-bottom: 1px solid rgba(212,175,55,0.2);
+}
+.panel-title::before, .panel-title::after { content: "◆"; font-size: 10px; margin: 0 10px; color: #8a6d3b; vertical-align: middle; }
+
+/* ========== 表单样式 ========== */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 13px; color: #b8a87a; margin-bottom: 6px; letter-spacing: 2px; }
+.form-input, .form-select {
+  width: 100%; padding: 10px 14px; background: rgba(10,10,25,0.6);
+  border: 1px solid rgba(212,175,55,0.2); border-radius: 6px;
+  color: #e8dcc4; font-size: 14px; font-family: inherit; outline: none;
+  transition: border-color 0.3s;
+}
+.form-input:focus, .form-select:focus { border-color: #d4af37; box-shadow: 0 0 10px rgba(212,175,55,0.15); }
+.form-select option { background: #1a1a2e; color: #e8dcc4; }
+.form-row { display: flex; gap: 10px; }
+.form-row .form-group { flex: 1; }
+
+/* ========== 按钮样式 ========== */
+.btn-primary {
+  width: 100%; padding: 14px; margin-top: 8px;
+  background: linear-gradient(135deg, #8a6d3b 0%, #d4af37 50%, #8a6d3b 100%);
+  border: none; border-radius: 8px; color: #0a0a1a; font-size: 16px;
+  font-weight: 700; letter-spacing: 6px; cursor: pointer; font-family: inherit;
+  transition: all 0.3s; box-shadow: 0 4px 20px rgba(212,175,55,0.3);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(212,175,55,0.5); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  padding: 10px 20px; background: rgba(212,175,55,0.1);
+  border: 1px solid rgba(212,175,55,0.4); border-radius: 6px;
+  color: #d4af37; font-size: 13px; cursor: pointer; font-family: inherit;
+  letter-spacing: 2px; transition: all 0.3s;
+}
+.btn-secondary:hover { background: rgba(212,175,55,0.2); }
+
+/* ========== 卦象展示 ========== */
+.gua-display { text-align: center; margin: 16px 0; }
+.gua-symbol { font-size: 48px; color: #d4af37; line-height: 1; margin-bottom: 8px; text-shadow: 0 0 20px rgba(212,175,55,0.5); }
+.gua-name { font-size: 24px; font-weight: 700; color: #f5e6c8; letter-spacing: 6px; margin-bottom: 4px; }
+.gua-pinyin { font-size: 12px; color: #8a7a5c; letter-spacing: 3px; margin-bottom: 12px; }
+
+.yao-list { display: flex; flex-direction: column-reverse; gap: 4px; align-items: center; margin: 16px 0; }
+.yao-line { display: flex; align-items: center; gap: 8px; }
+.yao-bar { width: 80px; height: 10px; border-radius: 2px; }
+.yao-bar.yang { background: linear-gradient(90deg, #c9a84c, #f5e6c8, #c9a84c); box-shadow: 0 0 8px rgba(212,175,55,0.4); }
+.yao-bar.yin { background: transparent; display: flex; gap: 8px; }
+.yao-bar.yin::before, .yao-bar.yin::after { content: ""; width: 36px; height: 10px; background: linear-gradient(90deg, #c9a84c, #f5e6c8, #c9a84c); border-radius: 2px; box-shadow: 0 0 8px rgba(212,175,55,0.4); }
+.yao-bar.changing { animation: yaoPulse 1.5s ease-in-out infinite; }
+@keyframes yaoPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.yao-label { font-size: 11px; color: #8a7a5c; width: 30px; text-align: right; }
+
+/* ========== 结果内容 ========== */
+.result-section { margin-bottom: 18px; }
+.result-section h4 {
+  font-size: 14px; color: #d4af37; margin-bottom: 8px; letter-spacing: 3px;
+  padding-left: 10px; border-left: 3px solid #d4af37;
+}
+.result-section p { font-size: 13px; line-height: 1.8; color: #c8b896; text-align: justify; }
+.result-section .verse { font-style: italic; color: #a89868; padding: 8px 12px; background: rgba(212,175,55,0.05); border-radius: 4px; margin: 6px 0; }
+
+/* ========== 八字展示 ========== */
+.bazi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0; }
+.bazi-pillar { text-align: center; padding: 10px 4px; background: rgba(212,175,55,0.05); border-radius: 6px; border: 1px solid rgba(212,175,55,0.15); }
+.bazi-pillar .pillar-label { font-size: 10px; color: #8a7a5c; margin-bottom: 4px; letter-spacing: 1px; }
+.bazi-pillar .pillar-stem { font-size: 20px; font-weight: 700; color: #d4af37; }
+.bazi-pillar .pillar-branch { font-size: 18px; color: #c8b896; margin-top: 2px; }
+.bazi-pillar .pillar-wuxing { font-size: 10px; color: #6a8a5c; margin-top: 4px; }
+
+/* ========== 底部操作提示 ========== */
+.bottom-hint {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 100; font-size: 12px; color: rgba(180,160,120,0.6);
+  letter-spacing: 3px; text-align: center; pointer-events: none;
+}
+.bottom-hint span { margin: 0 12px; }
+
+/* ========== 龟壳摇卦区域 ========== */
+.turtle-area {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  z-index: 50; pointer-events: none; opacity: 0; transition: opacity 0.5s;
+}
+.turtle-area.active { opacity: 1; pointer-events: auto; }
+
+/* ========== 加载动画 ========== */
+.loading-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #0a0a1a; z-index: 9999; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; transition: opacity 0.8s;
+}
+.loading-overlay.fade-out { opacity: 0; pointer-events: none; }
+.loading-taiji {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: conic-gradient(from 0deg, #d4af37 0%, #d4af37 50%, #1a1a2e 50%, #1a1a2e 100%);
+  animation: spin 2s linear infinite; margin-bottom: 24px;
+  box-shadow: 0 0 40px rgba(212,175,55,0.4);
+}
+.loading-taiji::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; border-radius: 50%; background: #d4af37; }
+.loading-taiji::after { content: ""; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; border-radius: 50%; background: #1a1a2e; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 16px; color: #d4af37; letter-spacing: 8px; }
+
+/* ========== 提示消息 ========== */
+.toast {
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px);
+  z-index: 200; padding: 12px 28px; background: rgba(15,15,35,0.95);
+  border: 1px solid rgba(212,175,55,0.4); border-radius: 8px;
+  color: #d4af37; font-size: 14px; letter-spacing: 3px;
+  opacity: 0; transition: all 0.3s; pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ========== 规则说明折叠 ========== */
+.rules-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px; cursor: pointer; color: #8a7a5c; font-size: 12px;
+  letter-spacing: 2px; transition: color 0.3s; margin-top: 12px;
+}
+.rules-toggle:hover { color: #d4af37; }
+.rules-content {
+  max-height: 0; overflow: hidden; transition: max-height 0.4s ease;
+  font-size: 12px; line-height: 1.8; color: #a89868;
+}
+.rules-content.open { max-height: 500px; }
+.rules-content p { margin-bottom: 8px; padding: 6px 10px; background: rgba(212,175,55,0.03); border-radius: 4px; }
+
+/* ========== 响应式适配 ========== */
+
+/* PC端（>1024px）使用默认样式 */
+
+/* iPad端（768px - 1024px） */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .info-panel {
+    width: 300px;
+    right: 16px;
+    max-height: 70vh;
+    padding: 20px;
+  }
+  .nav-panel {
+    left: 16px;
+    gap: 10px;
+  }
+  .nav-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 13px;
+  }
+  .top-bar {
+    padding: 14px 24px;
+  }
+  .top-bar .title {
+    font-size: 20px;
+    letter-spacing: 6px;
+  }
+  .gua-symbol { font-size: 42px; }
+  .gua-name { font-size: 22px; }
+  .bazi-pillar .pillar-stem { font-size: 18px; }
+  .bazi-pillar .pillar-branch { font-size: 16px; }
+}
+
+/* 手机端（<=768px） */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* 顶部标题栏 */
+  .top-bar {
+    padding: 10px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .top-bar .title {
+    font-size: 16px;
+    letter-spacing: 4px;
+  }
+  .top-bar .subtitle {
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+  
+  /* 左侧导航 - 改为底部横向排列 */
+  .nav-panel {
+    left: 50%;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    flex-direction: row;
+    gap: 8px;
+    background: rgba(10,10,30,0.85);
+    padding: 8px 12px;
+    border-radius: 30px;
+    border: 1px solid rgba(212,175,55,0.2);
+    backdrop-filter: blur(10px);
+  }
+  .nav-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 11px;
+    writing-mode: horizontal-tb;
+    letter-spacing: 0;
+  }
+  
+  /* 右侧信息面板 - 改为底部弹出 */
+  .info-panel {
+    width: calc(100% - 24px);
+    right: 12px;
+    left: 12px;
+    top: auto;
+    bottom: 80px;
+    transform: none;
+    max-height: 65vh;
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .info-panel.hidden {
+    transform: translateY(calc(100% + 100px));
+    opacity: 0;
+  }
+  
+  /* 表单样式 */
+  .form-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 12px; }
+  .form-input, .form-select {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  
+  /* 按钮样式 */
+  .btn-primary {
+    padding: 12px;
+    font-size: 15px;
+    letter-spacing: 4px;
+  }
+  .btn-secondary {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+  
+  /* 卦象展示 */
+  .gua-display { margin: 12px 0; }
+  .gua-symbol { font-size: 36px; }
+  .gua-name { font-size: 20px; letter-spacing: 4px; }
+  .gua-pinyin { font-size: 10px; }
+  
+  /* 六爻展示 */
+  .yao-bar { width: 60px; height: 8px; }
+  .yao-bar.yin::before, .yao-bar.yin::after { width: 26px; height: 8px; }
+  .yao-label { font-size: 10px; width: 24px; }
+  
+  /* 八字展示 */
+  .bazi-grid { gap: 6px; }
+  .bazi-pillar { padding: 8px 2px; }
+  .bazi-pillar .pillar-label { font-size: 9px; }
+  .bazi-pillar .pillar-stem { font-size: 16px; }
+  .bazi-pillar .pillar-branch { font-size: 14px; }
+  .bazi-pillar .pillar-wuxing { font-size: 9px; }
+  
+  /* 结果内容 */
+  .result-section { margin-bottom: 14px; }
+  .result-section h4 { font-size: 13px; }
+  .result-section p { font-size: 12px; line-height: 1.7; }
+  .result-section .verse { font-size: 12px; padding: 6px 10px; }
+  
+  /* 面板标题 */
+  .panel-title {
+    font-size: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+  }
+  
+  /* 底部操作提示 - 隐藏 */
+  .bottom-hint {
+    display: none;
+  }
+  
+  /* 提示消息 */
+  .toast {
+    top: 60px;
+    padding: 10px 20px;
+    font-size: 13px;
+    max-width: 90%;
+  }
+  
+  /* 加载动画 */
+  .loading-taiji {
+    width: 60px;
+    height: 60px;
+  }
+  .loading-taiji::before, .loading-taiji::after {
+    width: 30px;
+    height: 30px;
+  }
+  .loading-text {
+    font-size: 14px;
+    letter-spacing: 6px;
+  }
+}
+
+/* 小屏手机（<=480px） */
+@media (max-width: 480px) {
+  .nav-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 10px;
+  }
+  .nav-panel {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  .info-panel {
+    padding: 14px;
+    max-height: 60vh;
+  }
+  .gua-symbol { font-size: 32px; }
+  .gua-name { font-size: 18px; }
+}
+
+/* 横屏手机优化 */
+@media (max-width: 900px) and (orientation: landscape) {
+  .info-panel {
+    max-height: 80vh;
+    width: 280px;
+    right: 12px;
+    left: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+  .info-panel.hidden {
+    transform: translateY(-50%) translateX(320px);
+  }
+  .nav-panel {
+    left: 12px;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+    background: transparent;
+    padding: 0;
+    border: none;
+    backdrop-filter: none;
+  }
+}
+
+/* 高DPI屏幕优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .info-panel {
+    border-width: 0.5px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- 加载动画 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-taiji"></div>
+  <div class="loading-text">玄机阁 · 正在开启</div>
+</div>
+
+<!-- 3D画布 -->
+<div id="canvas-container"></div>
+
+<!-- 顶部标题 -->
+<div class="top-bar">
+  <div>
+    <div class="title">玄机阁</div>
+    <div class="subtitle">3D 易经罗盘 · 命理推演</div>
+  </div>
+</div>
+
+<!-- 左侧导航 -->
+<div class="nav-panel">
+  <button class="nav-btn active" data-mode="liuyao">六爻</button>
+  <button class="nav-btn" data-mode="bazi">八字</button>
+  <button class="nav-btn" data-mode="meihua">梅花</button>
+  <button class="nav-btn" data-mode="compass">罗盘</button>
+</div>
+
+<!-- 右侧信息面板 -->
+<div class="info-panel" id="infoPanel">
+  <!-- 六爻面板 -->
+  <div id="panel-liuyao">
+    <div class="panel-title">六爻摇卦</div>
+    <div class="form-group">
+      <label class="form-label">所占之事</label>
+      <input type="text" class="form-input" id="liuyaoQuestion" placeholder="请诚心默念所问之事…">
+    </div>
+    <button class="btn-primary" id="btnShake">起 卦</button>
+    <div class="rules-toggle" onclick="toggleRules('liuyaoRules')">
+      <span>规则说明</span><span id="liuyaoRulesArrow">▼</span>
+    </div>
+    <div class="rules-content" id="liuyaoRules">
+      <p><strong>三枚铜钱法：</strong>取三枚铜钱，放入龟壳中摇动后倒出。</p>
+      <p><strong>爻象判定：</strong>三字为老阴（×，动爻），三背为老阳（○，动爻），二字一背为少阴（- -），二背一字为少阳（—）。</p>
+      <p><strong>成卦顺序：</strong>从初爻到上爻，共摇六次。有动爻则产生变卦。</p>
+    </div>
+    <div id="liuyaoResult" style="display:none;">
+      <div class="gua-display">
+        <div class="gua-symbol" id="liuyaoSymbol">☰</div>
+        <div class="gua-name" id="liuyaoName">乾为天</div>
+        <div class="gua-pinyin" id="liuyaoPinyin">QIÁN WÉI TIĀN</div>
+      </div>
+      <div class="yao-list" id="liuyaoYao"></div>
+      <div id="liuyaoBianGua" style="display:none;">
+        <div style="text-align:center;color:#8a7a5c;font-size:12px;margin:8px 0;letter-spacing:2px;">— 变卦 —</div>
+        <div class="gua-display">
+          <div class="gua-symbol" id="bianSymbol">☷</div>
+          <div class="gua-name" id="bianName">坤为地</div>
+        </div>
+      </div>
+      <div class="result-section">
+        <h4>卦辞</h4>
+        <div class="verse" id="liuyaoGuaci"></div>
+      </div>
+      <div class="result-section">
+        <h4>白话解读</h4>
+        <p id="liuyaoInterpret"></p>
+      </div>
+      <div class="result-section" id="liuyaoDongYaoSection" style="display:none;">
+        <h4>动爻爻辞</h4>
+        <div class="verse" id="liuyaoDongYao"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn-secondary" style="flex:1;" onclick="copyLiuyaoResult()">复制卦象</button>
+        <button class="btn-secondary" style="flex:1;" onclick="resetLiuyao()">重新起卦</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 八字面板 -->
+  <div id="panel-bazi" style="display:none;">
+    <div class="panel-title">八字命理</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">历法</label>
+        <select class="form-select" id="baziCalendar">
+          <option value="solar">新历（公历）</option>
+          <option value="lunar">农历（阴历）</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">年</label>
+        <input type="number" class="form-input" id="baziYear" value="1990" min="1900" max="2100">
+      </div>
+      <div class="form-group">
+        <label class="form-label">月</label>
+        <input type="number" class="form-input" id="baziMonth" value="6" min="1" max="12">
+      </div>
+      <div class="form-group">
+        <label class="form-label">日</label>
+        <input type="number" class="form-input" id="baziDay" value="15" min="1" max="31">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">时</label>
+        <select class="form-select" id="baziHour">
+          <option value="0">子时 (23:00-01:00)</option>
+          <option value="1">丑时 (01:00-03:00)</option>
+          <option value="2">寅时 (03:00-05:00)</option>
+          <option value="3">卯时 (05:00-07:00)</option>
+          <option value="4">辰时 (07:00-09:00)</option>
+          <option value="5">巳时 (09:00-11:00)</option>
+          <option value="6" selected>午时 (11:00-13:00)</option>
+          <option value="7">未时 (13:00-15:00)</option>
+          <option value="8">申时 (15:00-17:00)</option>
+          <option value="9">酉时 (17:00-19:00)</option>
+          <option value="10">戌时 (19:00-21:00)</option>
+          <option value="11">亥时 (21:00-23:00)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">性别</label>
+        <select class="form-select" id="baziGender">
+          <option value="male">男</option>
+          <option value="female">女</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-primary" id="btnBazi">排 盘</button>
+    <div class="rules-toggle" onclick="toggleRules('baziRules')">
+      <span>规则说明</span><span id="baziRulesArrow">▼</span>
+    </div>
+    <div class="rules-content" id="baziRules">
+      <p><strong>四柱八字：</strong>以出生年、月、日、时各配一天干一地支，共四柱八字。</p>
+      <p><strong>天干：</strong>甲乙丙丁戊己庚辛壬癸（10个），<strong>地支：</strong>子丑寅卯辰巳午未申酉戌亥（12个）。</p>
+      <p><strong>五行：</strong>天干地支各有五行属性，通过五行生克关系推断命局。</p>
+      <p><strong>说明：</strong>本排盘采用公历简化算法，精确命理需结合真太阳时与节气交接。</p>
+    </div>
+    <div id="baziResult" style="display:none;">
+      <div class="bazi-grid" id="baziGrid"></div>
+      <div class="result-section">
+        <h4>日主信息</h4>
+        <p id="baziRizhu"></p>
+      </div>
+      <div class="result-section">
+        <h4>五行统计与旺衰</h4>
+        <p id="baziWuxing"></p>
+        <p id="baziWangshuai"></p>
+      </div>
+      <div class="result-section">
+        <h4>十神分析</h4>
+        <p id="baziShishen"></p>
+      </div>
+      <div class="result-section">
+        <h4>纳音五行</h4>
+        <p id="baziNayin"></p>
+      </div>
+      <div class="result-section">
+        <h4>大运走势</h4>
+        <p id="baziDayun"></p>
+      </div>
+      <div class="result-section">
+        <h4>性格特征</h4>
+        <p id="baziXingge"></p>
+      </div>
+      <div class="result-section">
+        <h4>事业财运</h4>
+        <p id="baziShiye"></p>
+      </div>
+      <div class="result-section">
+        <h4>感情婚姻</h4>
+        <p id="baziGanqing"></p>
+      </div>
+      <div class="result-section">
+        <h4>健康提示</h4>
+        <p id="baziJiankang"></p>
+      </div>
+      <div class="result-section">
+        <h4>命局简析与建议</h4>
+        <p id="baziAnalysis"></p>
+      </div>
+      <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="copyBaziResult()">复制命盘</button>
+    </div>
+  </div>
+
+  <!-- 梅花易数面板 -->
+  <div id="panel-meihua" style="display:none;">
+    <div class="panel-title">梅花易数</div>
+    <div class="form-group">
+      <label class="form-label">起卦方式</label>
+      <select class="form-select" id="meihuaType">
+        <option value="time">时间起卦</option>
+        <option value="number">数字起卦</option>
+      </select>
+    </div>
+    <div id="meihuaNumberInput" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">上卦数</label>
+          <input type="number" class="form-input" id="meihuaNum1" value="3" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">下卦数</label>
+          <input type="number" class="form-input" id="meihuaNum2" value="8" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">动爻数</label>
+          <input type="number" class="form-input" id="meihuaNum3" value="6" min="1">
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">所占之事</label>
+      <input type="text" class="form-input" id="meihuaQuestion" placeholder="请输入所问之事…">
+    </div>
+    <button class="btn-primary" id="btnMeihua">起 卦</button>
+    <div class="rules-toggle" onclick="toggleRules('meihuaRules')">
+      <span>规则说明</span><span id="meihuaRulesArrow">▼</span>
+    </div>
+    <div class="rules-content" id="meihuaRules">
+      <p><strong>时间起卦：</strong>以农历年支数+月数+日数取上卦，加时数取下卦，总和取动爻。</p>
+      <p><strong>数字起卦：</strong>第一个数除以8取上卦，第二个数除以8取下卦，第三个数除以6取动爻。</p>
+      <p><strong>卦序：</strong>乾1兑2离3震4巽5坎6艮7坤8。余数为0则取8（坤）。</p>
+      <p><strong>体用：</strong>无动爻之卦为体，有动爻之卦为用，体用生克断吉凶。</p>
+    </div>
+    <div id="meihuaResult" style="display:none;">
+      <div class="gua-display">
+        <div class="gua-symbol" id="meihuaSymbol">☰</div>
+        <div class="gua-name" id="meihuaName">乾为天</div>
+      </div>
+      <div class="yao-list" id="meihuaYao"></div>
+      <div id="meihuaBianGua" style="display:none;">
+        <div style="text-align:center;color:#8a7a5c;font-size:12px;margin:8px 0;letter-spacing:2px;">— 变卦 —</div>
+        <div class="gua-display">
+          <div class="gua-symbol" id="meihuaBianSymbol">☷</div>
+          <div class="gua-name" id="meihuaBianName">坤为地</div>
+        </div>
+      </div>
+      <div class="result-section">
+        <h4>体用分析</h4>
+        <p id="meihuaTiyong"></p>
+      </div>
+      <div class="result-section">
+        <h4>卦辞</h4>
+        <div class="verse" id="meihuaGuaci"></div>
+      </div>
+      <div class="result-section">
+        <h4>白话解读</h4>
+        <p id="meihuaInterpret"></p>
+      </div>
+      <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="copyMeihuaResult()">复制卦象</button>
+    </div>
+  </div>
+
+  <!-- 罗盘说明面板 -->
+  <div id="panel-compass" style="display:none;">
+    <div class="panel-title">罗盘说明</div>
+    <div class="result-section">
+      <h4>操作指南</h4>
+      <p>• 拖拽上方八卦盘可360°旋转查看</p>
+      <p>• 拖拽底部罗盘可旋转方位</p>
+      <p>• 滚轮缩放视角</p>
+      <p>• 点击左侧按钮切换测算功能</p>
+    </div>
+    <div class="result-section">
+      <h4>罗盘圈层</h4>
+      <p><strong>天池：</strong>中心太极，定南北之基准</p>
+      <p><strong>八卦层：</strong>先天八卦，乾南坤北</p>
+      <p><strong>天干层：</strong>甲乙丙丁庚辛壬癸，戊己居中</p>
+      <p><strong>地支层：</strong>子丑寅卯辰巳午未申酉戌亥</p>
+      <p><strong>二十四山：</strong>每山15°，定向之精要</p>
+    </div>
+    <div class="result-section">
+      <h4>免责声明</h4>
+      <p style="font-size:11px;color:#6a5a4a;">本应用仅供文化研究与娱乐参考，不作为任何决策依据。易经命理是中国传统文化的组成部分，其科学性尚有争议，请理性看待。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 底部提示 -->
+<div class="bottom-hint">
+  <span>拖拽旋转</span><span>·</span><span>滚轮缩放</span><span>·</span><span>心诚则灵</span>
+</div>
+
+<!-- 提示消息 -->
+<div class="toast" id="toast"></div>
+
+<!-- Three.js 本地文件 -->
+<script src="three.min.js"></script>
+
+<script>
+// 全局错误处理
+window.onerror = function(msg, url, line, col, error) {
+  var overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.innerHTML = '<div style="color:#d4af37;font-size:16px;text-align:center;padding:40px;">' +
+      '<div style="font-size:48px;margin-bottom:20px;">⚠</div>' +
+      '<div style="margin-bottom:12px;">页面加载遇到问题</div>' +
+      '<div style="font-size:12px;color:#8a7a5c;max-width:400px;word-break:break-all;">' + msg + '</div>' +
+      '<div style="margin-top:20px;font-size:12px;color:#6a5a4a;">请刷新页面重试，或检查浏览器控制台</div>' +
+      '</div>';
+    overlay.style.opacity = '1';
+    overlay.style.pointerEvents = 'auto';
+  }
+  return false;
+};
+
+// ============================================================
+// 易经数据
+// ============================================================
+
+// 八卦数据
+const BAGUA = {
+  qian: { name: '乾', symbol: '☰', nature: '天', element: '金', direction: '南', number: 1, lines: [1,1,1] },
+  dui:  { name: '兑', symbol: '☱', nature: '泽', element: '金', direction: '东南', number: 2, lines: [1,1,0] },
+  li:   { name: '离', symbol: '☲', nature: '火', element: '火', direction: '东', number: 3, lines: [1,0,1] },
+  zhen: { name: '震', symbol: '☳', nature: '雷', element: '木', direction: '东北', number: 4, lines: [1,0,0] },
+  xun:  { name: '巽', symbol: '☴', nature: '风', element: '木', direction: '西南', number: 5, lines: [0,1,1] },
+  kan:  { name: '坎', symbol: '☵', nature: '水', element: '水', direction: '西', number: 6, lines: [0,1,0] },
+  gen:  { name: '艮', symbol: '☶', nature: '山', element: '土', direction: '西北', number: 7, lines: [0,0,1] },
+  kun:  { name: '坤', symbol: '☷', nature: '地', element: '土', direction: '北', number: 8, lines: [0,0,0] }
+};
+
+const BAGUA_ORDER = ['qian','dui','li','zhen','xun','kan','gen','kun'];
+
+// 64卦数据（上卦+下卦索引）
+// 索引: 0=乾,1=兑,2=离,3=震,4=巽,5=坎,6=艮,7=坤
+const HEXAGRAMS = [
+  // 乾为上卦
+  [{name:'乾为天',guaci:'元亨利贞。',interpret:'大吉大利，诸事顺遂。象征刚健中正，自强不息。此卦六爻皆阳，纯阳之象，宜积极进取，但需戒骄戒躁。'},
+   {name:'天泽履',guaci:'履虎尾，不咥人，亨。',interpret:'谨慎前行，虽有危险但能化解。象征以柔克刚，循礼而行。遇事需小心谨慎，不可莽撞。'},
+   {name:'天火同人',guaci:'同人于野，亨。利涉大川，利君子贞。',interpret:'和同于人，团结协作。象征与人和睦相处，能成大事。宜广结善缘，与志同道合者共事。'},
+   {name:'天雷无妄',guaci:'元亨利贞。其匪正有眚，不利有攸往。',interpret:'不妄为，顺其自然。象征真实无妄，守正得吉。不可存非分之想，宜脚踏实地。'},
+   {name:'天风姤',guaci:'女壮，勿用取女。',interpret:'相遇邂逅，需防隐患。象征阴阳相遇，柔遇刚。需警惕小人，谨慎处理人际关系。'},
+   {name:'天水讼',guaci:'有孚窒惕，中吉，终凶。利见大人，不利涉大川。',interpret:'争讼之象，宜和解不宜争斗。象征意见不合，产生纷争。宜退一步海阔天空，不可固执己见。'},
+   {name:'天山遁',guaci:'亨，小利贞。',interpret:'退避隐遁，以退为进。象征及时退避，保全自身。当环境不利时，宜暂时退让，等待时机。'},
+   {name:'天地否',guaci:'否之匪人，不利君子贞，大往小来。',interpret:'闭塞不通，诸事不顺。象征天地不交，上下隔阂。需耐心等待，坚守正道，终会转泰。'}],
+  // 兑为上卦
+  [{name:'泽天夬',guaci:'扬于王庭，孚号有厉。告自邑，不利即戎，利有攸往。',interpret:'决断果决，清除小人。象征刚决柔，君子道长。宜果断行事，但需以德服人，不可恃强凌弱。'},
+   {name:'兑为泽',guaci:'亨，利贞。',interpret:'和悦喜悦，顺利亨通。象征两泽相连，朋友讲习。宜与人和睦相处，保持愉悦心态。'},
+   {name:'泽火革',guaci:'己日乃孚，元亨利贞，悔亡。',interpret:'变革革新，除旧布新。象征水火相息，变革之象。时机成熟时宜大胆变革，但需顺应民心。'},
+   {name:'泽雷随',guaci:'元亨利贞，无咎。',interpret:'随顺随和，择善而从。象征泽中有雷，动而悦。宜顺应时势，跟随正道，不可盲从。'},
+   {name:'泽风大过',guaci:'栋桡，利有攸往，亨。',interpret:'非常行动，承担大任。象征泽灭木，大有过越。面临重大压力时，宜采取非常手段，但需谨慎。'},
+   {name:'泽水困',guaci:'亨，贞，大人吉，无咎，有言不信。',interpret:'困窘艰难，守正待时。象征泽中无水，穷困之象。身处困境时，宜坚守信念，不可因言语而动摇。'},
+   {name:'泽山咸',guaci:'亨，利贞，取女吉。',interpret:'感应相通，两情相悦。象征山上有泽，交感之象。宜以诚待人，建立良好关系，婚姻大吉。'},
+   {name:'泽地萃',guaci:'亨。王假有庙，利见大人，亨，利贞。用大牲吉，利有攸往。',interpret:'聚集荟萃，人才汇聚。象征泽在地上，万物聚集。宜团结众人，共同成事，祭祀祈福。'}],
+  // 离为上卦
+  [{name:'火天大有',guaci:'元亨。',interpret:'大有所获，丰盛富足。象征火在天上，光明普照。宜积极进取，必有所获，但需谦虚谨慎。'},
+   {name:'火泽睽',guaci:'小事吉。',interpret:'乖离不合，求同存异。象征火泽相违，意见相左。宜从小事入手，寻找共同点，不可强求一致。'},
+   {name:'离为火',guaci:'利贞，亨。畜牝牛，吉。',interpret:'光明附丽，柔顺中正。象征两火相续，光明不断。宜坚守正道，依附贤者，如母牛般柔顺。'},
+   {name:'火雷噬嗑',guaci:'亨，利用狱。',interpret:'咬合贯通，明断是非。象征火雷相交，咬合之象。宜果断排除障碍，明察秋毫，公正执法。'},
+   {name:'火风鼎',guaci:'元吉，亨。',interpret:'鼎新定业，稳重吉祥。象征木上有火，烹饪之象。象征政权稳固，事业有成，大吉大利。'},
+   {name:'火水未济',guaci:'亨，小狐汔济，濡其尾，无攸利。',interpret:'事未完成，谨慎收尾。象征火在水上，事未成。接近成功时更需谨慎，不可功亏一篑。'},
+   {name:'火山旅',guaci:'小亨，旅贞吉。',interpret:'旅行在外，谦谨守正。象征山上有火，行旅之象。出门在外宜小心谨慎，守正则吉。'},
+   {name:'火地晋',guaci:'康侯用锡马蕃庶，昼日三接。',interpret:'晋升上进，光明通达。象征火出地上，日出之象。宜积极进取，必获赏识与提拔。'}],
+  // 震为上卦
+  [{name:'雷天大壮',guaci:'利贞。',interpret:'壮大强盛，守正防骄。象征雷在天上，声势浩大。实力强盛时更需守正，不可恃强凌弱。'},
+   {name:'雷泽归妹',guaci:'征凶，无攸利。',interpret:'婚嫁归宿，需循正道。象征雷动泽随，婚嫁之象。婚姻之事需慎重，不可草率，循礼则吉。'},
+   {name:'雷火丰',guaci:'亨，王假之，勿忧，宜日中。',interpret:'丰盛盛大，如日中天。象征雷电皆至，丰大之象。事业鼎盛时宜保持清醒，盛极必衰。'},
+   {name:'震为雷',guaci:'亨。震来虩虩，笑言哑哑，震惊百里，不丧匕鬯。',interpret:'震动警醒，临危不乱。象征两雷相续，警觉之象。面对突发变故，宜保持镇定，从容应对。'},
+   {name:'雷风恒',guaci:'亨，无咎，利贞，利有攸往。',interpret:'恒久持久，持之以恒。象征雷风相与，恒久之道。宜坚持正道，持之以恒，不可半途而废。'},
+   {name:'雷水解',guaci:'利西南，无所往，其来复吉。有攸往，夙吉。',interpret:'解除困难，化险为夷。象征雷雨交作，解散之象。困难即将解除，宜及时行动，早做准备。'},
+   {name:'雷山小过',guaci:'亨，利贞，可小事，不可大事。飞鸟遗之音，不宜上宜下，大吉。',interpret:'小有过越，宜下不宜上。象征山上有雷，小有过越。宜做小事，不宜做大事，谦恭处下则吉。'},
+   {name:'雷地豫',guaci:'利建侯行师。',interpret:'和乐安逸，顺时而动。象征雷出地奋，和乐之象。宜顺应时势，积极行动，建立功业。'}],
+  // 巽为上卦
+  [{name:'风天小畜',guaci:'亨。密云不雨，自我西郊。',interpret:'小有积蓄，蓄势待发。象征风行天上，小有所畜。宜积蓄力量，等待时机，不可急于求成。'},
+   {name:'风泽中孚',guaci:'豚鱼吉，利涉大川，利贞。',interpret:'诚信中正，感人至深。象征泽上有风，诚信之象。以诚待人，无往不利，涉险也能平安。'},
+   {name:'风火家人',guaci:'利女贞。',interpret:'家庭和睦，各正其位。象征风自火出，家人之象。宜重视家庭，各尽其责，女正位则家道正。'},
+   {name:'风雷益',guaci:'利有攸往，利涉大川。',interpret:'增益利益，损上益下。象征风雷相益，增益之象。宜积极进取，乐于助人，必有回报。'},
+   {name:'巽为风',guaci:'小亨，利有攸往，利见大人。',interpret:'谦逊顺从，循序渐进。象征两风相随，顺从之象。宜谦逊待人，循序渐进，拜见贵人。'},
+   {name:'风水涣',guaci:'亨。王假有庙，利涉大川，利贞。',interpret:'涣散离散，聚心合众。象征风行水上，涣散之象。宜凝聚人心，共渡难关，祭祀祈福。'},
+   {name:'风山渐',guaci:'女归吉，利贞。',interpret:'循序渐进，水到渠成。象征山上有木，渐进之象。宜循序渐进，不可急躁，婚姻吉祥。'},
+   {name:'风地观',guaci:'盥而不荐，有孚颙若。',interpret:'观察审视，以身作则。象征风行地上，观瞻之象。宜仔细观察，以身作则，以德服人。'}],
+  // 坎为上卦
+  [{name:'水天需',guaci:'有孚，光亨，贞吉。利涉大川。',interpret:'等待时机，耐心守候。象征云上于天，等待之象。宜耐心等待时机，不可冒进，守正得吉。'},
+   {name:'水泽节',guaci:'亨。苦节不可贞。',interpret:'节制有度，不可过度。象征泽上有水，节制之象。宜有所节制，但不可过度苛刻，适可而止。'},
+   {name:'水火既济',guaci:'亨小，利贞，初吉终乱。',interpret:'事已成功，防患未然。象征水在火上，既济之象。事业已成时宜居安思危，防止盛极而乱。'},
+   {name:'水雷屯',guaci:'元亨利贞，勿用有攸往，利建侯。',interpret:'初生艰难，宜建诸侯。象征云雷交作，屯难之象。创业初期艰难，宜寻求帮助，建立根基。'},
+   {name:'水风井',guaci:'改邑不改井，无丧无得，往来井井。汔至亦未繘井，羸其瓶，凶。',interpret:'井养不穷，修身养德。象征木上有水，井养之象。宜修养品德，惠及他人，但需注意方法。'},
+   {name:'坎为水',guaci:'习坎，有孚，维心亨，行有尚。',interpret:'重重险难，诚信可通。象征两水相重，险难之象。身处险境时，宜保持诚信，心诚则通。'},
+   {name:'水山蹇',guaci:'利西南，不利东北。利见大人，贞吉。',interpret:'艰难险阻，宜退不宜进。象征山上有水，蹇难之象。前路艰难时宜暂时退避，寻求贵人帮助。'},
+   {name:'水地比',guaci:'吉。原筮元永贞，无咎。不宁方来，后夫凶。',interpret:'亲比团结，依附贤者。象征地上有水，亲比之象。宜与贤者亲近，团结协作，不可落后。'}],
+  // 艮为上卦
+  [{name:'山天大畜',guaci:'利贞，不家食吉，利涉大川。',interpret:'大有积蓄，蓄德养贤。象征天在山中，大畜之象。宜积蓄才德，任用贤人，必能成大事。'},
+   {name:'山泽损',guaci:'有孚，元吉，无咎，可贞，利有攸往。曷之用，二簋可用享。',interpret:'减损克制，损下益上。象征山下有泽，损减之象。宜有所舍弃，以诚待人，简约行事。'},
+   {name:'山火贲',guaci:'亨。小利有攸往。',interpret:'文饰修饰，内外兼修。象征山下有火，文饰之象。宜注重外表修饰，但不可华而不实，小有所成。'},
+   {name:'山雷颐',guaci:'贞吉。观颐，自求口实。',interpret:'颐养之道，慎言节食。象征山下有雷，颐养之象。宜注重修养，谨慎言语，自食其力。'},
+   {name:'山风蛊',guaci:'元亨，利涉大川。先甲三日，后甲三日。',interpret:'整治积弊，革故鼎新。象征山下有风，蛊乱之象。宜整治积弊，大胆改革，事前事后皆需谨慎。'},
+   {name:'山水蒙',guaci:'亨。匪我求童蒙，童蒙求我。初筮告，再三渎，渎则不告。利贞。',interpret:'蒙昧启蒙，教育之道。象征山下出泉，蒙昧之象。宜启蒙教育，诚心求教则有所得，不可亵渎。'},
+   {name:'艮为山',guaci:'艮其背，不获其身，行其庭，不见其人，无咎。',interpret:'停止克制，安于本分。象征两山相重，停止之象。宜适时停止，安于本分，心无杂念则无咎。'},
+   {name:'山地剥',guaci:'不利有攸往。',interpret:'剥落侵蚀，阴盛阳衰。象征山附于地，剥落之象。运势低迷时宜守不宜进，耐心等待转机。'}],
+  // 坤为上卦
+  [{name:'地天泰',guaci:'小往大来，吉亨。',interpret:'通泰安顺，天地交泰。象征天地交合，通泰之象。诸事顺遂，上下和睦，大吉大利，但需防极泰来否。'},
+   {name:'地泽临',guaci:'元亨利贞。至于八月有凶。',interpret:'临视督导，以上临下。象征泽上有地，临之象。宜积极面对，督导下属，但需警惕盛极而衰。'},
+   {name:'地火明夷',guaci:'利艰贞。',interpret:'光明受伤，韬光养晦。象征明入地中，光明受损。身处逆境时宜隐藏锋芒，坚守正道，等待光明重现。'},
+   {name:'地雷复',guaci:'亨。出入无疾，朋来无咎。反复其道，七日来复，利有攸往。',interpret:'复归回复，一阳来复。象征雷在地中，复归之象。运势开始好转，宜积极行动，七日之内必有转机。'},
+   {name:'地风升',guaci:'元亨，用见大人，勿恤，南征吉。',interpret:'上升进步，步步高升。象征地中生木，上升之象。宜积极进取，拜见贵人，向南发展大吉。'},
+   {name:'地水师',guaci:'贞，丈人吉，无咎。',interpret:'兴师动众，用兵之道。象征地中有水，师众之象。宜任用有德长者统领，守正则吉，不可妄动。'},
+   {name:'地山谦',guaci:'亨，君子有终。',interpret:'谦逊退让，谦受益。象征地中有山，谦逊之象。宜谦虚待人，不骄不躁，君子有始有终。'},
+   {name:'坤为地',guaci:'元亨，利牝马之贞。君子有攸往，先迷后得主，利西南得朋，东北丧朋。安贞吉。',interpret:'柔顺包容，厚德载物。象征两坤相重，柔顺之象。宜柔顺守正，如母马般温良，先迷后得，安守正道则吉。'}]
+];
+
+// 天干地支
+const TIANGAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const DIZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const WUXING_GAN = ['木','木','火','火','土','土','金','金','水','水'];
+const WUXING_ZHI = ['水','土','木','木','土','火','火','土','金','金','土','水'];
+const SHENGXIAO = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+
+// ============================================================
+// 六爻算法
+// ============================================================
+
+// 摇一次铜钱: 0=三字(老阴), 1=三背(老阳), 2=二字一背(少阴), 3=二背一字(少阳)
+function shakeCoins() {
+  const coins = [Math.random() < 0.5 ? 0 : 1, Math.random() < 0.5 ? 0 : 1, Math.random() < 0.5 ? 0 : 1];
+  const backs = coins.reduce((a,b) => a+b, 0);
+  if (backs === 0) return { type: 'old_yin', value: 0, changing: true, coins: coins }; // 三字 = 老阴
+  if (backs === 3) return { type: 'old_yang', value: 1, changing: true, coins: coins }; // 三背 = 老阳
+  if (backs === 1) return { type: 'young_yang', value: 1, changing: false, coins: coins }; // 一背 = 少阳
+  return { type: 'young_yin', value: 0, changing: false, coins: coins }; // 二背 = 少阴
+}
+
+// 根据六爻结果获取卦象
+function getHexagramFromYao(yaoResults) {
+  // yaoResults: 从初爻到上爻的数组
+  const lowerLines = yaoResults.slice(0,3).map(y => y.value); // 下卦
+  const upperLines = yaoResults.slice(3,6).map(y => y.value); // 上卦
+  
+  const lowerIdx = linesToBaguaIndex(lowerLines);
+  const upperIdx = linesToBaguaIndex(upperLines);
+  
+  return {
+    upper: upperIdx,
+    lower: lowerIdx,
+    data: HEXAGRAMS[upperIdx][lowerIdx],
+    yao: yaoResults
+  };
+}
+
+function linesToBaguaIndex(lines) {
+  // lines: [初,二,三] 从下到上, 1=阳, 0=阴
+  // 乾111=0, 兑110=1, 离101=2, 震100=3, 巽011=4, 坎010=5, 艮001=6, 坤000=7
+  const val = lines[0]*4 + lines[1]*2 + lines[2];
+  const map = {7:0, 6:1, 5:2, 4:3, 3:4, 2:5, 1:6, 0:7};
+  return map[val];
+}
+
+// 获取变卦
+function getBianGua(hexagram) {
+  const changingYao = hexagram.yao.filter(y => y.changing);
+  if (changingYao.length === 0) return null;
+  
+  const newYao = hexagram.yao.map(y => {
+    if (y.changing) {
+      return { ...y, value: y.value === 1 ? 0 : 1, changing: false };
+    }
+    return y;
+  });
+  
+  return getHexagramFromYao(newYao);
+}
+
+// 爻辞（简化版，主要动爻爻辞）
+const YAO_NAMES = ['初','二','三','四','五','上'];
+const YAO_CI = {
+  // 这里只提供部分常见卦的动爻辞，实际应用中可扩展
+  0: { // 乾
+    0: '潜龙勿用。', 1: '见龙在田，利见大人。', 2: '君子终日乾乾，夕惕若厉，无咎。',
+    3: '或跃在渊，无咎。', 4: '飞龙在天，利见大人。', 5: '亢龙有悔。'
+  },
+  7: { // 坤
+    0: '履霜，坚冰至。', 1: '直方大，不习无不利。', 2: '含章可贞，或从王事，无成有终。',
+    3: '括囊，无咎无誉。', 4: '黄裳，元吉。', 5: '龙战于野，其血玄黄。'
+  }
+};
+
+function getYaoCi(hexagram, yaoIndex) {
+  const upperKey = hexagram.upper;
+  if (YAO_CI[upperKey] && YAO_CI[upperKey][yaoIndex]) {
+    return YAO_CI[upperKey][yaoIndex];
+  }
+  return `${YAO_NAMES[yaoIndex]}爻动，${yaoIndex < 3 ? '下卦' : '上卦'}${YAO_NAMES[yaoIndex]}爻变。宜因时而动，见机而行。`;
+}
+
+// ============================================================
+// 八字算法（简化版）
+// ============================================================
+
+function getBazi(year, month, day, hourIdx, gender) {
+  // 年柱 (简化: 以立春为界，这里用公历年份简化)
+  const yearGanIdx = (year - 4) % 10;
+  const yearZhiIdx = (year - 4) % 12;
+  
+  // 月柱 (简化: 不考虑节气，用月份近似)
+  // 寅月为正月，甲己之年丙作首...
+  const monthZhiIdx = (month + 1) % 12; // 1月=寅(2), 简化
+  const monthGanBase = [2,4,6,8,0,2,4,6,8,0]; // 甲己之年丙作首
+  const monthGanIdx = (monthGanBase[yearGanIdx % 5] + month - 1) % 10;
+  
+  // 日柱 (简化算法: 基于已知基准日计算)
+  // 基准: 2000年1月1日为 戊午日 (天干4=戊, 地支6=午)
+  const baseDate = new Date(2000, 0, 1);
+  const targetDate = new Date(year, month - 1, day);
+  const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
+  const dayGanIdx = ((4 + diffDays) % 10 + 10) % 10;
+  const dayZhiIdx = ((6 + diffDays) % 12 + 12) % 12;
+  
+  // 时柱
+  // 甲己还加甲，乙庚丙作初...
+  const hourGanBase = [0,2,4,6,8,0,2,4,6,8];
+  const hourGanIdx = (hourGanBase[dayGanIdx % 5] + hourIdx) % 10;
+  const hourZhiIdx = hourIdx;
+  
+  return {
+    year: { stem: TIANGAN[yearGanIdx], branch: DIZHI[yearZhiIdx], stemWx: WUXING_GAN[yearGanIdx], branchWx: WUXING_ZHI[yearZhiIdx], shengxiao: SHENGXIAO[yearZhiIdx] },
+    month: { stem: TIANGAN[monthGanIdx], branch: DIZHI[monthZhiIdx], stemWx: WUXING_GAN[monthGanIdx], branchWx: WUXING_ZHI[monthZhiIdx] },
+    day: { stem: TIANGAN[dayGanIdx], branch: DIZHI[dayZhiIdx], stemWx: WUXING_GAN[dayGanIdx], branchWx: WUXING_ZHI[dayZhiIdx] },
+    hour: { stem: TIANGAN[hourGanIdx], branch: DIZHI[hourZhiIdx], stemWx: WUXING_GAN[hourGanIdx], branchWx: WUXING_ZHI[hourZhiIdx] },
+    gender: gender,
+    dayMaster: TIANGAN[dayGanIdx],
+    dayMasterWx: WUXING_GAN[dayGanIdx]
+  };
+}
+
+function analyzeBazi(bazi) {
+  // 五行统计
+  const wxCount = { '金':0, '木':0, '水':0, '火':0, '土':0 };
+  ['year','month','day','hour'].forEach(p => {
+    wxCount[bazi[p].stemWx]++;
+    wxCount[bazi[p].branchWx]++;
+  });
+  
+  // 日主分析
+  const dm = bazi.dayMaster;
+  const dmWx = bazi.dayMasterWx;
+  
+  // 五行生克
+  const sheng = { '金':'水', '水':'木', '木':'火', '火':'土', '土':'金' };
+  const ke = { '金':'木', '木':'土', '土':'水', '水':'火', '火':'金' };
+  
+  let strength = 0;
+  // 同我（比劫）
+  ['year','month','hour'].forEach(p => {
+    if (bazi[p].stemWx === dmWx) strength += 2;
+    if (bazi[p].branchWx === dmWx) strength += 1;
+  });
+  // 生我（印枭）
+  const shengWo = Object.keys(sheng).find(k => sheng[k] === dmWx);
+  ['year','month','hour'].forEach(p => {
+    if (bazi[p].stemWx === shengWo) strength += 1.5;
+    if (bazi[p].branchWx === shengWo) strength += 0.8;
+  });
+  
+  const isStrong = strength > 5;
+  
+  return {
+    wxCount: wxCount,
+    dayMaster: dm,
+    dayMasterWx: dmWx,
+    strength: isStrong ? '偏强' : '偏弱',
+    isStrong: isStrong,
+    shengWo: shengWo,
+    keWo: ke[dmWx],
+    xieWo: sheng[dmWx],
+    suggestion: isStrong 
+      ? `日主${dm}(${dmWx})偏强，宜克宜泄。喜${ke[dmWx]}、${sheng[dmWx]}，忌${dmWx}、${shengWo}。`
+      : `日主${dm}(${dmWx})偏弱，宜生宜助。喜${shengWo}、${dmWx}，忌${ke[dmWx]}、${sheng[dmWx]}。`
+  };
+}
+
+// 十神计算
+function getShiShen(dayMasterWx, otherWx, isStem) {
+  const sheng = { '金':'水', '水':'木', '木':'火', '火':'土', '土':'金' };
+  const ke = { '金':'木', '木':'土', '土':'水', '水':'火', '火':'金' };
+  
+  if (otherWx === dayMasterWx) return isStem ? '比肩' : '劫财';
+  if (sheng[otherWx] === dayMasterWx) return isStem ? '偏印' : '正印';
+  if (sheng[dayMasterWx] === otherWx) return isStem ? '食神' : '伤官';
+  if (ke[dayMasterWx] === otherWx) return isStem ? '偏财' : '正财';
+  if (ke[otherWx] === dayMasterWx) return isStem ? '七杀' : '正官';
+  return '—';
+}
+
+// 纳音五行表（简化版）
+const NAYIN = {
+  '甲子': '海中金', '乙丑': '海中金', '丙寅': '炉中火', '丁卯': '炉中火',
+  '戊辰': '大林木', '己巳': '大林木', '庚午': '路旁土', '辛未': '路旁土',
+  '壬申': '剑锋金', '癸酉': '剑锋金', '甲戌': '山头火', '乙亥': '山头火',
+  '丙子': '涧下水', '丁丑': '涧下水', '戊寅': '城头土', '己卯': '城头土',
+  '庚辰': '白蜡金', '辛巳': '白蜡金', '壬午': '杨柳木', '癸未': '杨柳木',
+  '甲申': '泉中水', '乙酉': '泉中水', '丙戌': '屋上土', '丁亥': '屋上土',
+  '戊子': '霹雳火', '己丑': '霹雳火', '庚寅': '松柏木', '辛卯': '松柏木',
+  '壬辰': '长流水', '癸巳': '长流水', '甲午': '沙中金', '乙未': '沙中金',
+  '丙申': '山下火', '丁酉': '山下火', '戊戌': '平地木', '己亥': '平地木',
+  '庚子': '壁上土', '辛丑': '壁上土', '壬寅': '金箔金', '癸卯': '金箔金',
+  '甲辰': '覆灯火', '乙巳': '覆灯火', '丙午': '天河水', '丁未': '天河水',
+  '戊申': '大驿土', '己酉': '大驿土', '庚戌': '钗钏金', '辛亥': '钗钏金',
+  '壬子': '桑柘木', '癸丑': '桑柘木', '甲寅': '大溪水', '乙卯': '大溪水',
+  '丙辰': '沙中土', '丁巳': '沙中土', '戊午': '天上火', '己未': '天上火',
+  '庚申': '石榴木', '辛酉': '石榴木', '壬戌': '大海水', '癸亥': '大海水'
+};
+
+// 性格分析
+function analyzeXingge(bazi, analysis) {
+  const dm = bazi.dayMaster;
+  const traits = {
+    '甲': '正直积极，有领导力，喜欢独立行事，有时过于固执',
+    '乙': '温柔细腻，善于协调，适应力强，有时优柔寡断',
+    '丙': '热情开朗，乐观向上，表达力强，有时急躁冲动',
+    '丁': '温和内敛，心思细腻，重感情，有时多愁善感',
+    '戊': '稳重踏实，诚实守信，有包容力，有时过于保守',
+    '己': '细心谨慎，善于思考，重视细节，有时多疑敏感',
+    '庚': '刚毅果断，讲义气，有魄力，有时过于强硬',
+    '辛': '精致敏锐，追求完美，有审美力，有时挑剔苛刻',
+    '壬': '聪明机智，善于变通，胸怀宽广，有时散漫不羁',
+    '癸': '聪慧敏感，想象力丰富，直觉力强，有时消极逃避'
+  };
+  
+  let result = traits[dm] || '性格稳重，处事踏实。';
+  if (analysis.isStrong) {
+    result += ' 日主偏强，性格中独立自主、积极进取的一面更为明显。';
+  } else {
+    result += ' 日主偏弱，性格中温和内敛、善于倾听的一面更为突出。';
+  }
+  return result;
+}
+
+// 事业财运分析
+function analyzeShiye(bazi, analysis) {
+  const dmWx = bazi.dayMasterWx;
+  const sheng = { '金':'水', '水':'木', '木':'火', '火':'土', '土':'金' };
+  const ke = { '金':'木', '木':'土', '土':'水', '水':'火', '火':'金' };
+  
+  const cai = ke[dmWx]; // 我克者为财
+  const guan = ke[Object.keys(ke).find(k => ke[k] === dmWx)]; // 克我者为官
+  
+  let result = `财星为${cai}，官星为${guan}。`;
+  
+  if (analysis.wxCount[cai] >= 2) {
+    result += ` 命中${cai}财星较旺，财运较好，有经商理财的天赋。`;
+  } else if (analysis.wxCount[cai] === 0) {
+    result += ` 命中${cai}财星较弱，财运需要通过努力积累，不宜投机冒险。`;
+  } else {
+    result += ` 命中${cai}财星适中，财运平稳，量入为出则可富足。`;
+  }
+  
+  if (analysis.isStrong) {
+    result += ' 日主偏强，能担财官，适合独立创业或担任管理职位。';
+  } else {
+    result += ' 日主偏弱，财官不宜过旺，适合稳定工作或合作经营。';
+  }
+  
+  return result;
+}
+
+// 感情婚姻分析
+function analyzeGanqing(bazi, analysis) {
+  const gender = bazi.gender;
+  const dmWx = bazi.dayMasterWx;
+  const sheng = { '金':'水', '水':'木', '木':'火', '火':'土', '土':'金' };
+  const ke = { '金':'木', '木':'土', '土':'水', '水':'火', '火':'金' };
+  
+  let spouseStar;
+  if (gender === 'male') {
+    spouseStar = ke[dmWx]; // 男命以财为妻
+  } else {
+    spouseStar = ke[Object.keys(ke).find(k => ke[k] === dmWx)]; // 女命以官为夫
+  }
+  
+  let result = `${gender === 'male' ? '男命以财星为妻' : '女命以官星为夫'}，配偶星为${spouseStar}。`;
+  
+  if (analysis.wxCount[spouseStar] >= 2) {
+    result += ` 命中${spouseStar}较旺，异性缘佳，感情选择较多，需注意专一。`;
+  } else if (analysis.wxCount[spouseStar] === 0) {
+    result += ` 命中${spouseStar}较弱，异性缘一般，感情需要主动争取，晚婚更宜。`;
+  } else {
+    result += ` 命中${spouseStar}适中，感情运平稳，可遇良缘。`;
+  }
+  
+  if (bazi.day.stem === '甲' || bazi.day.stem === '乙' || bazi.day.stem === '丙' || bazi.day.stem === '丁') {
+    result += ' 日主为木火，感情表达较为直接热烈。';
+  } else {
+    result += ' 日主为金水土，感情表达较为含蓄内敛。';
+  }
+  
+  return result;
+}
+
+// 健康分析
+function analyzeJiankang(bazi, analysis) {
+  const wxCount = analysis.wxCount;
+  const weakWx = Object.entries(wxCount).sort((a,b) => a[1] - b[1])[0][0];
+  const strongWx = Object.entries(wxCount).sort((a,b) => b[1] - a[1])[0][0];
+  
+  const healthMap = {
+    '金': '肺、大肠、呼吸系统，注意咳嗽、气喘、皮肤问题',
+    '木': '肝、胆、神经系统，注意头痛、眩晕、情绪波动',
+    '水': '肾、膀胱、泌尿系统，注意腰痛、耳鸣、精力不足',
+    '火': '心、小肠、血液循环，注意心悸、失眠、血压问题',
+    '土': '脾、胃、消化系统，注意消化不良、胃痛、湿气重'
+  };
+  
+  let result = `五行中${weakWx}最弱，需注意${healthMap[weakWx]}。`;
+  if (wxCount[strongWx] >= 4) {
+    result += ` ${strongWx}过旺，也需注意${healthMap[strongWx]}相关的平衡问题。`;
+  }
+  result += ' 建议保持规律作息，适度运动，饮食均衡，定期体检。';
+  
+  return result;
+}
+
+// 大运分析（简化版）
+function analyzeDayun(bazi, analysis) {
+  const yearGan = bazi.year.stem;
+  const gender = bazi.gender;
+  
+  // 阳年生男、阴年生女顺排，反之逆排
+  const isYang = ['甲','丙','戊','庚','壬'].includes(yearGan);
+  const isShun = (isYang && gender === 'male') || (!isYang && gender === 'female');
+  
+  const monthGanIdx = TIANGAN.indexOf(bazi.month.stem);
+  const monthZhiIdx = DIZHI.indexOf(bazi.month.branch);
+  
+  let dayun = [];
+  for (let i = 1; i <= 8; i++) {
+    let ganIdx, zhiIdx;
+    if (isShun) {
+      ganIdx = (monthGanIdx + i) % 10;
+      zhiIdx = (monthZhiIdx + i) % 12;
+    } else {
+      ganIdx = (monthGanIdx - i + 10) % 10;
+      zhiIdx = (monthZhiIdx - i + 12) % 12;
+    }
+    const age = (i - 1) * 10 + 5; // 约5岁起运
+    dayun.push(`${age}-${age+9}岁 ${TIANGAN[ganIdx]}${DIZHI[zhiIdx]}`);
+  }
+  
+  return `起运方向：${isShun ? '顺行' : '逆行'}。大运走势：` + dayun.join(' → ');
+}
+
+// ============================================================
+// 梅花易数算法
+// ============================================================
+
+function meihuaTimeQigua() {
+  const now = new Date();
+  // 简化: 用公历时间模拟农历
+  const yearZhi = (now.getFullYear() - 4) % 12 + 1;
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const hour = Math.floor(now.getHours() / 2) + 1;
+  
+  const upperNum = (yearZhi + month + day) % 8;
+  const lowerNum = (yearZhi + month + day + hour) % 8;
+  const dongYao = (yearZhi + month + day + hour) % 6;
+  
+  return {
+    upper: upperNum === 0 ? 7 : upperNum - 1,
+    lower: lowerNum === 0 ? 7 : lowerNum - 1,
+    dongYao: dongYao === 0 ? 5 : dongYao - 1
+  };
+}
+
+function meihuaNumberQigua(n1, n2, n3) {
+  const upper = ((n1 % 8) || 8) - 1;
+  const lower = ((n2 % 8) || 8) - 1;
+  const dongYao = ((n3 % 6) || 6) - 1;
+  return { upper, lower, dongYao };
+}
+
+function getMeihuaHexagram(upperIdx, lowerIdx, dongYaoIdx) {
+  const upperBagua = BAGUA[BAGUA_ORDER[upperIdx]];
+  const lowerBagua = BAGUA[BAGUA_ORDER[lowerIdx]];
+  
+  // 构建六爻
+  const yao = [];
+  // 下卦三爻
+  for (let i = 0; i < 3; i++) {
+    yao.push({ value: lowerBagua.lines[i], changing: i === dongYaoIdx });
+  }
+  // 上卦三爻
+  for (let i = 0; i < 3; i++) {
+    yao.push({ value: upperBagua.lines[i], changing: (i+3) === dongYaoIdx });
+  }
+  
+  const hexagram = {
+    upper: upperIdx,
+    lower: lowerIdx,
+    data: HEXAGRAMS[upperIdx][lowerIdx],
+    yao: yao
+  };
+  
+  // 体用分析
+  const ti = dongYaoIdx < 3 ? upperBagua : lowerBagua; // 无动爻为体
+  const yong = dongYaoIdx < 3 ? lowerBagua : upperBagua; // 有动爻为用
+  
+  const sheng = { '金':'水', '水':'木', '木':'火', '火':'土', '土':'金' };
+  const ke = { '金':'木', '木':'土', '土':'水', '水':'火', '火':'金' };
+  
+  let tiyongText = `体卦为${ti.name}(${ti.element})，用卦为${yong.name}(${yong.element})。`;
+  if (ti.element === yong.element) {
+    tiyongText += '体用比和，诸事顺遂，大吉之象。';
+  } else if (sheng[ti.element] === yong.element) {
+    tiyongText += '体生用，泄气之象，需付出较多努力，事倍功半。';
+  } else if (sheng[yong.element] === ti.element) {
+    tiyongText += '用生体，得助之象，有贵人相助，事半功倍。';
+  } else if (ke[ti.element] === yong.element) {
+    tiyongText += '体克用，我克者为财，求财可得，但需耗费精力。';
+  } else if (ke[yong.element] === ti.element) {
+    tiyongText += '用克体，克我者为官鬼，需防压力与阻碍，谨慎行事。';
+  }
+  
+  return { hexagram, tiyongText, ti, yong };
+}
+
+// ============================================================
+// Three.js 3D场景
+// ============================================================
+
+let scene, camera, renderer;
+let compassGroup, baguaGroup, turtleGroup, starField, lightBeam, verticalTextGroup;
+let isShaking = false;
+let baguaAutoRotate = true;
+let compassAutoRotate = true;
+let mouseDown = false;
+// 浑天仪转动速度控制
+let baguaRotateSpeed = 0.002; // 默认速度
+let baguaRotateTargetSpeed = 0.002; // 目标速度
+let baguaPaused = false; // 是否暂停转动
+// 浑天仪拆解状态
+let baguaExplodeProgress = 0; // 0=闭合, 1=完全展开
+let baguaExplodeTarget = 0;
+let baguaExplodeTimer = null;
+
+// 自定义相机控制
+let camAngleH = 0; // 水平角度
+let camAngleV = 0.5; // 垂直角度（0=水平，PI/2=俯视）
+let camDistance = 250;
+let camTargetY = 55;
+let isDragging = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
+
+function initThree() {
+  const container = document.getElementById('canvas-container');
+  
+  // 场景
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0a0a1a, 0.0008);
+  
+  // 相机
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+  updateCameraPosition();
+  
+  // 渲染器
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  
+  renderer = new THREE.WebGLRenderer({ 
+    antialias: !isMobile, 
+    alpha: true,
+    powerPreference: isMobile ? 'low-power' : 'high-performance'
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  // 移动设备降低像素比以提升性能
+  const maxPixelRatio = isMobile ? 1.5 : 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+  renderer.shadowMap.enabled = !isMobile;
+  if (!isMobile) {
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = isMobile ? 1.0 : 1.2;
+  container.appendChild(renderer.domElement);
+  
+  // 触摸设备优化：防止页面滚动和缩放
+  if (isTouchDevice) {
+    renderer.domElement.style.touchAction = 'none';
+    renderer.domElement.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+    renderer.domElement.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+  }
+  
+  // 自定义相机控制事件
+  renderer.domElement.addEventListener('pointerdown', onCamPointerDown);
+  renderer.domElement.addEventListener('pointermove', onCamPointerMove);
+  renderer.domElement.addEventListener('pointerup', onCamPointerUp);
+  renderer.domElement.addEventListener('pointerleave', onCamPointerUp);
+  renderer.domElement.addEventListener('pointercancel', onCamPointerUp);
+  if (!isTouchDevice) {
+    renderer.domElement.addEventListener('wheel', onCamWheel, { passive: false });
+  } else {
+    // 触摸设备使用双指缩放
+    let initialPinchDistance = null;
+    renderer.domElement.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initialPinchDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+    }, { passive: true });
+    renderer.domElement.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && initialPinchDistance) {
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const delta = (initialPinchDistance - currentDistance) * 0.5;
+        cameraDistance = Math.max(120, Math.min(400, cameraDistance + delta));
+        initialPinchDistance = currentDistance;
+        updateCameraPosition();
+      }
+    }, { passive: true });
+    renderer.domElement.addEventListener('touchend', () => {
+      initialPinchDistance = null;
+    }, { passive: true });
+  }
+  
+  // 灯光
+  const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+  scene.add(ambientLight);
+  
+  const mainLight = new THREE.DirectionalLight(0xfff5e0, 1.2);
+  mainLight.position.set(80, 150, 80);
+  mainLight.castShadow = true;
+  mainLight.shadow.mapSize.width = 2048;
+  mainLight.shadow.mapSize.height = 2048;
+  mainLight.shadow.camera.near = 0.5;
+  mainLight.shadow.camera.far = 500;
+  mainLight.shadow.camera.left = -150;
+  mainLight.shadow.camera.right = 150;
+  mainLight.shadow.camera.top = 150;
+  mainLight.shadow.camera.bottom = -150;
+  scene.add(mainLight);
+  
+  const fillLight = new THREE.DirectionalLight(0x4488ff, 0.3);
+  fillLight.position.set(-80, 60, -80);
+  scene.add(fillLight);
+  
+  const rimLight = new THREE.PointLight(0xd4af37, 1, 300);
+  rimLight.position.set(0, 80, 0);
+  scene.add(rimLight);
+  
+  // 创建各部分
+  createStarField();
+  createCompass();
+  createBagua();
+  createTurtle();
+  createLightBeam();
+  createGround();
+  
+  // 事件
+  window.addEventListener('resize', onWindowResize);
+  
+  // 八卦交互
+  initBaguaInteraction();
+  
+  animate();
+}
+
+// 星空背景
+function createStarField() {
+  const starGeometry = new THREE.BufferGeometry();
+  const starCount = 3000;
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+  const sizes = new Float32Array(starCount);
+  
+  for (let i = 0; i < starCount; i++) {
+    const radius = 500 + Math.random() * 500;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI;
+    positions[i*3] = radius * Math.sin(phi) * Math.cos(theta);
+    positions[i*3+1] = radius * Math.cos(phi);
+    positions[i*3+2] = radius * Math.sin(phi) * Math.sin(theta);
+    
+    const colorChoice = Math.random();
+    if (colorChoice < 0.7) {
+      colors[i*3] = 1; colors[i*3+1] = 0.95; colors[i*3+2] = 0.85;
+    } else if (colorChoice < 0.85) {
+      colors[i*3] = 0.7; colors[i*3+1] = 0.8; colors[i*3+2] = 1;
+    } else {
+      colors[i*3] = 1; colors[i*3+1] = 0.85; colors[i*3+2] = 0.6;
+    }
+    sizes[i] = Math.random() * 2 + 0.5;
+  }
+  
+  starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  
+  const starMaterial = new THREE.PointsMaterial({
+    size: 1.5,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.6,
+    sizeAttenuation: true
+  });
+  
+  starField = new THREE.Points(starGeometry, starMaterial);
+  scene.add(starField);
+}
+
+// 地面
+function createGround() {
+  const groundGeometry = new THREE.CircleGeometry(400, 64);
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0x0d0d1f,
+    roughness: 0.9,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.8
+  });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  
+  // 地面光环
+  const ringGeometry = new THREE.RingGeometry(120, 125, 64);
+  const ringMaterial = new THREE.MeshBasicMaterial({
+    color: 0xd4af37,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.DoubleSide
+  });
+  const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = -1.5;
+  scene.add(ring);
+}
+
+// 创建纹理辅助函数
+function createTextTexture(text, options = {}) {
+  const {
+    fontSize = 24,
+    color = '#d4af37',
+    bgColor = null,
+    width = 128,
+    height = 128,
+    fontWeight = 'bold',
+    fontFamily = '"Noto Serif SC", "STSong", serif'
+  } = options;
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  
+  if (bgColor) {
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, width, height);
+  }
+  
+  ctx.fillStyle = color;
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, width/2, height/2);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+// 创建罗盘刻度纹理
+function createCompassRingTexture(innerR, outerR, items, options = {}) {
+  const {
+    fontSize = 16,
+    color = '#d4af37',
+    bgColor = 'rgba(26,18,8,0.95)',
+    tickColor = '#8a6d3b',
+    showTicks = true
+  } = options;
+  
+  const size = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2, cy = size / 2;
+  const scale = size / (outerR * 2); // 让纹理圆环填满整个canvas
+  
+  // 背景圆环（不透明，确保文字清晰）
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR * scale, 0, Math.PI * 2);
+  ctx.arc(cx, cy, innerR * scale, 0, Math.PI * 2, true);
+  ctx.fillStyle = bgColor;
+  ctx.fill();
+  
+  // 内圈和外圈边线
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR * scale, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(212,175,55,0.5)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR * scale, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(212,175,55,0.3)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // 过滤空字符串，计算有效项目数
+  const validItems = items.filter(item => item && item.trim() !== '');
+  const validCount = validItems.length;
+  
+  // 刻度
+  if (showTicks && validCount > 0) {
+    for (let i = 0; i < validCount; i++) {
+      const angle = (i / validCount) * Math.PI * 2 - Math.PI / 2;
+      const isMajor = i % Math.max(1, Math.floor(validCount / 8)) === 0;
+      const tickLen = isMajor ? 15 : 8;
+      const r1 = outerR * scale - 6;
+      const r2 = outerR * scale - 6 - tickLen;
+      
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * r1, cy + Math.sin(angle) * r1);
+      ctx.lineTo(cx + Math.cos(angle) * r2, cy + Math.sin(angle) * r2);
+      ctx.strokeStyle = isMajor ? color : tickColor;
+      ctx.lineWidth = isMajor ? 3 : 1.5;
+      ctx.stroke();
+    }
+  }
+  
+  // 文字（带发光效果，确保清晰可见）
+  ctx.fillStyle = color;
+  ctx.font = `bold ${fontSize * 1.5}px "Noto Serif SC", "STSong", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  
+  const midR = (innerR + outerR) / 2 * scale;
+  validItems.forEach((item, i) => {
+    const angle = (i / validCount) * Math.PI * 2 - Math.PI / 2;
+    const x = cx + Math.cos(angle) * midR;
+    const y = cy + Math.sin(angle) * midR;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.fillText(item, 0, 0);
+    ctx.restore();
+  });
+  
+  ctx.shadowBlur = 0;
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+// 底部实体罗盘
+function createCompass() {
+  compassGroup = new THREE.Group();
+  compassGroup.position.y = 0;
+  
+  // 材质定义
+  const matDarkBronze = new THREE.MeshStandardMaterial({ color: 0x2a1f0e, roughness: 0.55, metalness: 0.75 });
+  const matBronze = new THREE.MeshStandardMaterial({ color: 0x5c4a2a, roughness: 0.45, metalness: 0.85 });
+  const matGold = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.25, metalness: 0.95 });
+  const matLightGold = new THREE.MeshStandardMaterial({ color: 0xe8c874, roughness: 0.3, metalness: 0.9 });
+  const matBlack = new THREE.MeshStandardMaterial({ color: 0x0d0a05, roughness: 0.4, metalness: 0.8 });
+  const matRed = new THREE.MeshStandardMaterial({ color: 0x8b2500, roughness: 0.35, metalness: 0.6, emissive: 0x4a1500, emissiveIntensity: 0.3 });
+  
+  // ===== 底座（多层阶梯，增强立体感）=====
+  // 最底层
+  const base1Geo = new THREE.CylinderGeometry(115, 120, 6, 64);
+  const base1 = new THREE.Mesh(base1Geo, matDarkBronze);
+  base1.position.y = -3;
+  base1.castShadow = true;
+  base1.receiveShadow = true;
+  compassGroup.add(base1);
+  
+  // 第二层
+  const base2Geo = new THREE.CylinderGeometry(110, 115, 5, 64);
+  const base2 = new THREE.Mesh(base2Geo, matBronze);
+  base2.position.y = 2.5;
+  base2.castShadow = true;
+  base2.receiveShadow = true;
+  compassGroup.add(base2);
+  
+  // 底座边缘装饰齿
+  for (let i = 0; i < 48; i++) {
+    const angle = (i / 48) * Math.PI * 2;
+    const toothGeo = new THREE.BoxGeometry(4, 3, 6);
+    const tooth = new THREE.Mesh(toothGeo, matGold);
+    tooth.position.set(Math.cos(angle) * 117, 0, Math.sin(angle) * 117);
+    tooth.rotation.y = -angle;
+    compassGroup.add(tooth);
+  }
+  
+  // 底座螺丝装饰
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const screwGeo = new THREE.CylinderGeometry(2, 2.5, 2, 8);
+    const screw = new THREE.Mesh(screwGeo, matGold);
+    screw.position.set(Math.cos(angle) * 108, 5.5, Math.sin(angle) * 108);
+    compassGroup.add(screw);
+    // 螺丝槽
+    const slotGeo = new THREE.BoxGeometry(3, 0.5, 1);
+    const slot = new THREE.Mesh(slotGeo, matBlack);
+    slot.position.set(Math.cos(angle) * 108, 6.8, Math.sin(angle) * 108);
+    slot.rotation.y = -angle;
+    compassGroup.add(slot);
+  }
+  
+  // ===== 多层罗盘环（从外到内，每层有厚度）=====
+  const rings = [
+    { inner: 95, outer: 108, height: 4, items: ['角','亢','氐','房','心','尾','箕','斗','牛','女','虚','危','室','壁','奎','娄','胃','昴','毕','觜','参','井','鬼','柳','星','张','翼','轸'], fontSize: 12, color: '#a89060', label: '二十八宿' },
+    { inner: 82, outer: 94, height: 4, items: generate24Shan(), fontSize: 14, color: '#c9a84c', label: '二十四山' },
+    { inner: 70, outer: 80, height: 5, items: DIZHI, fontSize: 18, color: '#d4af37', label: '十二地支' },
+    { inner: 58, outer: 68, height: 4, items: ['甲','乙','丙','丁','庚','辛','壬','癸','','','',''], fontSize: 16, color: '#e8c874', label: '天干' },
+    { inner: 46, outer: 56, height: 4, items: ['一白','二黑','三碧','四绿','五黄','六白','七赤','八白','九紫','','',''], fontSize: 11, color: '#b8a070', label: '九星' },
+    { inner: 34, outer: 44, height: 5, items: ['乾','兑','离','震','巽','坎','艮','坤'], fontSize: 20, color: '#f5e6c8', label: '先天八卦' }
+  ];
+  
+  rings.forEach((ring, idx) => {
+    const baseY = 5 + idx * 2.5;
+    
+    // 环的实体侧壁（有厚度的圆筒）
+    const ringSideGeo = new THREE.CylinderGeometry(ring.outer, ring.outer, ring.height, 64, 1, true);
+    const ringSideMat = new THREE.MeshStandardMaterial({
+      color: idx % 2 === 0 ? 0x1a1208 : 0x251a0e,
+      roughness: 0.5,
+      metalness: 0.7,
+      side: THREE.DoubleSide
+    });
+    const ringSide = new THREE.Mesh(ringSideGeo, ringSideMat);
+    ringSide.position.y = baseY + ring.height / 2;
+    compassGroup.add(ringSide);
+    
+    // 环内侧壁
+    const innerSideGeo = new THREE.CylinderGeometry(ring.inner, ring.inner, ring.height, 64, 1, true);
+    const innerSide = new THREE.Mesh(innerSideGeo, ringSideMat);
+    innerSide.position.y = baseY + ring.height / 2;
+    compassGroup.add(innerSide);
+    
+    // 环的顶面（纹理）
+    const texture = createCompassRingTexture(ring.inner, ring.outer, ring.items, {
+      fontSize: ring.fontSize,
+      color: ring.color,
+      bgColor: idx % 2 === 0 ? 'rgba(26,18,8,0.95)' : 'rgba(37,26,14,0.95)'
+    });
+    
+    const topGeo = new THREE.RingGeometry(ring.inner, ring.outer, 64);
+    const topMat = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const top = new THREE.Mesh(topGeo, topMat);
+    top.rotation.x = -Math.PI / 2;
+    top.position.y = baseY + ring.height;
+    compassGroup.add(top);
+    
+    // 环外缘金线（凸起）
+    const outerEdgeGeo = new THREE.TorusGeometry(ring.outer, 0.8, 12, 64);
+    const outerEdge = new THREE.Mesh(outerEdgeGeo, matGold);
+    outerEdge.rotation.x = Math.PI / 2;
+    outerEdge.position.y = baseY + ring.height;
+    compassGroup.add(outerEdge);
+    
+    // 环内缘金线
+    const innerEdgeGeo = new THREE.TorusGeometry(ring.inner, 0.6, 12, 64);
+    const innerEdge = new THREE.Mesh(innerEdgeGeo, matLightGold);
+    innerEdge.rotation.x = Math.PI / 2;
+    innerEdge.position.y = baseY + ring.height;
+    compassGroup.add(innerEdge);
+    
+    // 环外侧刻度凸起
+    for (let i = 0; i < ring.items.length; i++) {
+      if (!ring.items[i]) continue;
+      const angle = (i / ring.items.length) * Math.PI * 2 - Math.PI / 2;
+      const isMajor = i % Math.floor(ring.items.length / 8) === 0;
+      const tickH = isMajor ? 3 : 1.5;
+      const tickGeo = new THREE.BoxGeometry(isMajor ? 1.5 : 1, tickH, 2);
+      const tick = new THREE.Mesh(tickGeo, isMajor ? matGold : matLightGold);
+      tick.position.set(
+        Math.cos(angle) * (ring.outer + 1),
+        baseY + ring.height + tickH / 2,
+        Math.sin(angle) * (ring.outer + 1)
+      );
+      tick.rotation.y = -angle;
+      compassGroup.add(tick);
+    }
+  });
+  
+  // ===== 中心天池（立体多层）=====
+  const taijiBaseY = 5 + rings.length * 2.5;
+  
+  // 天池底座
+  const poolBaseGeo = new THREE.CylinderGeometry(32, 34, 6, 64);
+  const poolBase = new THREE.Mesh(poolBaseGeo, matBlack);
+  poolBase.position.y = taijiBaseY + 3;
+  poolBase.castShadow = true;
+  compassGroup.add(poolBase);
+  
+  // 天池内壁
+  const poolInnerGeo = new THREE.CylinderGeometry(28, 28, 5, 64, 1, true);
+  const poolInnerMat = new THREE.MeshStandardMaterial({ color: 0x1a1208, roughness: 0.3, metalness: 0.9, side: THREE.DoubleSide });
+  const poolInner = new THREE.Mesh(poolInnerGeo, poolInnerMat);
+  poolInner.position.y = taijiBaseY + 5.5;
+  compassGroup.add(poolInner);
+  
+  // 天池顶面（太极图）
+  const taijiTexture = createTaijiTexture();
+  const taijiGeo = new THREE.CircleGeometry(27, 64);
+  const taijiMat = new THREE.MeshBasicMaterial({ map: taijiTexture, transparent: true });
+  const taiji = new THREE.Mesh(taijiGeo, taijiMat);
+  taiji.rotation.x = -Math.PI / 2;
+  taiji.position.y = taijiBaseY + 8;
+  compassGroup.add(taiji);
+  
+  // 天池边缘金环（双层）
+  const poolEdge1Geo = new THREE.TorusGeometry(32, 2, 16, 64);
+  const poolEdge1 = new THREE.Mesh(poolEdge1Geo, matGold);
+  poolEdge1.rotation.x = Math.PI / 2;
+  poolEdge1.position.y = taijiBaseY + 6;
+  compassGroup.add(poolEdge1);
+  
+  const poolEdge2Geo = new THREE.TorusGeometry(29, 1, 12, 64);
+  const poolEdge2 = new THREE.Mesh(poolEdge2Geo, matLightGold);
+  poolEdge2.rotation.x = Math.PI / 2;
+  poolEdge2.position.y = taijiBaseY + 8.2;
+  compassGroup.add(poolEdge2);
+  
+  // 天池边缘装饰钉
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2;
+    const studGeo = new THREE.SphereGeometry(1.2, 8, 8);
+    const stud = new THREE.Mesh(studGeo, matGold);
+    stud.position.set(Math.cos(angle) * 32, taijiBaseY + 7, Math.sin(angle) * 32);
+    compassGroup.add(stud);
+  }
+  
+  // ===== 科技感元素 =====
+  // 底部发光能量环（多层）
+  const techRings = [];
+  for (let i = 0; i < 3; i++) {
+    const ringR = 100 + i * 15;
+    const ringGeo = new THREE.TorusGeometry(ringR, 0.5, 8, 128);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: i === 0 ? 0x00ffff : (i === 1 ? 0x00ff88 : 0xffaa00),
+      transparent: true,
+      opacity: 0.4 - i * 0.1,
+      blending: THREE.AdditiveBlending
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -3 + i * 0.5;
+    ring.userData.rotateSpeed = (i % 2 === 0 ? 1 : -1) * (0.002 + i * 0.001);
+    compassGroup.add(ring);
+    techRings.push(ring);
+  }
+  compassGroup.userData.techRings = techRings;
+  
+  // 底座周围悬浮科技粒子
+  const techParticleCount = 80;
+  const techParticleGeo = new THREE.BufferGeometry();
+  const techPositions = new Float32Array(techParticleCount * 3);
+  const techSpeeds = new Float32Array(techParticleCount);
+  for (let i = 0; i < techParticleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 85 + Math.random() * 50;
+    techPositions[i*3] = Math.cos(angle) * radius;
+    techPositions[i*3+1] = Math.random() * 30;
+    techPositions[i*3+2] = Math.sin(angle) * radius;
+    techSpeeds[i] = 0.3 + Math.random() * 0.5;
+  }
+  techParticleGeo.setAttribute('position', new THREE.BufferAttribute(techPositions, 3));
+  const techParticleMat = new THREE.PointsMaterial({
+    color: 0x00ffff,
+    size: 1.2,
+    transparent: true,
+    opacity: 0.7,
+    blending: THREE.AdditiveBlending
+  });
+  const techParticles = new THREE.Points(techParticleGeo, techParticleMat);
+  compassGroup.add(techParticles);
+  compassGroup.userData.techParticles = techParticles;
+  compassGroup.userData.techParticleSpeeds = techSpeeds;
+  
+  scene.add(compassGroup);
+}
+
+// 生成二十四山
+function generate24Shan() {
+  const shan = [];
+  const tianGan = ['甲','乙','丙','丁','庚','辛','壬','癸'];
+  const diZhi = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+  const bagua = ['乾','坤','艮','巽'];
+  
+  // 二十四山顺序: 壬子癸 丑艮寅 甲卯乙 辰巽巳 丙午丁 未坤申 庚酉辛 戌乾亥
+  const order = ['壬','子','癸','丑','艮','寅','甲','卯','乙','辰','巽','巳','丙','午','丁','未','坤','申','庚','酉','辛','戌','乾','亥'];
+  return order;
+}
+
+// 创建太极图纹理
+function createTaijiTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size/2, cy = size/2, r = size/2 - 4;
+  
+  // 背景
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#0d0a05';
+  ctx.fill();
+  
+  // 白色半圆
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI/2, Math.PI/2);
+  ctx.fillStyle = '#f5e6c8';
+  ctx.fill();
+  
+  // 黑色小圆（上）
+  ctx.beginPath();
+  ctx.arc(cx, cy - r/2, r/2, 0, Math.PI * 2);
+  ctx.fillStyle = '#0d0a05';
+  ctx.fill();
+  
+  // 白色小圆（下）
+  ctx.beginPath();
+  ctx.arc(cx, cy + r/2, r/2, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5e6c8';
+  ctx.fill();
+  
+  // 黑色点（上白中黑点）
+  ctx.beginPath();
+  ctx.arc(cx, cy - r/2, r/6, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5e6c8';
+  ctx.fill();
+  
+  // 白色点（下黑中白点）
+  ctx.beginPath();
+  ctx.arc(cx, cy + r/2, r/6, 0, Math.PI * 2);
+  ctx.fillStyle = '#0d0a05';
+  ctx.fill();
+  
+  // 金边
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = '#d4af37';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+// 上方悬浮八卦盘
+function createBagua() {
+  baguaGroup = new THREE.Group();
+  baguaGroup.position.y = 85;
+  
+  // ===== 中心八卦球体 =====
+  const sphereGeo = new THREE.SphereGeometry(32, 48, 48);
+  const baguaSphereTexture = createBaguaSphereTexture();
+  const sphereMat = new THREE.MeshStandardMaterial({
+    map: baguaSphereTexture,
+    roughness: 0.6,
+    metalness: 0.3,
+    emissive: 0x0a0a18,
+    emissiveIntensity: 0.5,
+    emissiveMap: baguaSphereTexture
+  });
+  const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+  sphere.castShadow = true;
+  sphere.receiveShadow = true;
+  baguaGroup.add(sphere);
+  baguaGroup.userData.sphere = sphere;
+  
+  // 球体外部光晕（科技感/神性）
+  const sphereGlowGeo = new THREE.SphereGeometry(35, 32, 32);
+  const sphereGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xd4af37,
+    transparent: true,
+    opacity: 0.08,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending
+  });
+  const sphereGlow = new THREE.Mesh(sphereGlowGeo, sphereGlowMat);
+  baguaGroup.add(sphereGlow);
+  baguaGroup.userData.sphereGlow = sphereGlow;
+  
+  // ===== 浑天仪三环 =====
+  // 材质 - 古铜金配色
+  const ringGoldMat = new THREE.MeshStandardMaterial({
+    color: 0xd4af37,
+    roughness: 0.3,
+    metalness: 0.95
+  });
+  const ringBronzeMat = new THREE.MeshStandardMaterial({
+    color: 0x8b6914,
+    roughness: 0.4,
+    metalness: 0.9
+  });
+  const ringDarkMat = new THREE.MeshStandardMaterial({
+    color: 0x5c4a2a,
+    roughness: 0.5,
+    metalness: 0.85
+  });
+  
+  // 外环1 - 水平（赤道环）- 带二十四山文字
+  const ring1Geo = new THREE.TorusGeometry(46, 2, 16, 96);
+  const ring1 = new THREE.Mesh(ring1Geo, ringGoldMat);
+  ring1.rotation.x = Math.PI / 2;
+  ring1.userData.originalPos = new THREE.Vector3(0, 0, 0);
+  ring1.userData.explodedPos = new THREE.Vector3(0, 25, 0);
+  ring1.userData.currentExplode = 0;
+  baguaGroup.add(ring1);
+  baguaGroup.userData.ring1 = ring1;
+  
+  // 外环1上的刻度凸起
+  for (let i = 0; i < 48; i++) {
+    const angle = (i / 48) * Math.PI * 2;
+    const isMajor = i % 6 === 0;
+    const tickH = isMajor ? 4 : 2;
+    const tickGeo = new THREE.BoxGeometry(isMajor ? 1.5 : 1, tickH, 2.5);
+    const tick = new THREE.Mesh(tickGeo, isMajor ? ringGoldMat : ringBronzeMat);
+    tick.position.set(Math.cos(angle) * 46, tickH / 2, Math.sin(angle) * 46);
+    tick.rotation.y = -angle;
+    baguaGroup.add(tick);
+  }
+  
+  // 外环2 - 垂直（子午环）- 带八卦符号
+  const ring2Geo = new THREE.TorusGeometry(43, 1.8, 16, 96);
+  const ring2 = new THREE.Mesh(ring2Geo, ringBronzeMat);
+  ring2.userData.originalPos = new THREE.Vector3(0, 0, 0);
+  ring2.userData.explodedPos = new THREE.Vector3(-22, 0, 0);
+  ring2.userData.currentExplode = 0;
+  baguaGroup.add(ring2);
+  baguaGroup.userData.ring2 = ring2;
+  
+  // 外环2上的八卦符号
+  const baguaSymbols = ['☰','☱','☲','☳','☴','☵','☶','☷'];
+  const baguaNames = ['乾','兑','离','震','巽','坎','艮','坤'];
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    // 符号背景
+    const bgGeo = new THREE.CircleGeometry(5, 16);
+    const bgMat = new THREE.MeshBasicMaterial({ color: 0x1a1208, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    const bg = new THREE.Mesh(bgGeo, bgMat);
+    bg.position.set(0, Math.sin(angle) * 43, Math.cos(angle) * 43);
+    bg.lookAt(0, 0, 0);
+    baguaGroup.add(bg);
+    
+    // 八卦符号
+    const symbolTexture = createTextTexture(baguaSymbols[i], { fontSize: 32, color: '#d4af37', width: 64, height: 64 });
+    const symbolGeo = new THREE.PlaneGeometry(6, 6);
+    const symbolMat = new THREE.MeshBasicMaterial({ map: symbolTexture, transparent: true, side: THREE.DoubleSide });
+    const symbol = new THREE.Mesh(symbolGeo, symbolMat);
+    symbol.position.set(0, Math.sin(angle) * 43, Math.cos(angle) * 43);
+    symbol.lookAt(0, 0, 0);
+    baguaGroup.add(symbol);
+    
+    // 卦名
+    const nameTexture = createTextTexture(baguaNames[i], { fontSize: 14, color: '#c9a84c', width: 32, height: 32 });
+    const nameGeo = new THREE.PlaneGeometry(3, 3);
+    const nameMat = new THREE.MeshBasicMaterial({ map: nameTexture, transparent: true, side: THREE.DoubleSide });
+    const name = new THREE.Mesh(nameGeo, nameMat);
+    name.position.set(0, Math.sin(angle) * 43 - 5, Math.cos(angle) * 43);
+    name.lookAt(0, 0, 0);
+    baguaGroup.add(name);
+  }
+  
+  // 外环2上的刻度铆钉
+  for (let i = 0; i < 24; i++) {
+    if (i % 3 === 0) continue; // 跳过八卦位置
+    const angle = (i / 24) * Math.PI * 2 - Math.PI / 2;
+    const rivetGeo = new THREE.SphereGeometry(0.8, 8, 8);
+    const rivet = new THREE.Mesh(rivetGeo, ringGoldMat);
+    rivet.position.set(0, Math.sin(angle) * 43, Math.cos(angle) * 43);
+    baguaGroup.add(rivet);
+  }
+  
+  // 外环3 - 垂直（卯酉环）- 带天干地支
+  const ring3Geo = new THREE.TorusGeometry(40, 1.5, 16, 96);
+  const ring3 = new THREE.Mesh(ring3Geo, ringDarkMat);
+  ring3.rotation.y = Math.PI / 2;
+  ring3.userData.originalPos = new THREE.Vector3(0, 0, 0);
+  ring3.userData.explodedPos = new THREE.Vector3(22, 0, 0);
+  ring3.userData.currentExplode = 0;
+  baguaGroup.add(ring3);
+  baguaGroup.userData.ring3 = ring3;
+  
+  // 外环3上的天干文字
+  const tianGan = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2;
+    const textTexture = createTextTexture(tianGan[i], { fontSize: 18, color: '#c9a84c', width: 32, height: 32 });
+    const textGeo = new THREE.PlaneGeometry(3.5, 3.5);
+    const textMat = new THREE.MeshBasicMaterial({ map: textTexture, transparent: true, side: THREE.DoubleSide });
+    const text = new THREE.Mesh(textGeo, textMat);
+    text.position.set(Math.cos(angle) * 40, Math.sin(angle) * 40, 0);
+    text.lookAt(0, 0, 0);
+    baguaGroup.add(text);
+  }
+  
+  // ===== 全息粒子环 =====
+  const holoParticles = createHoloParticles(55, 100);
+  baguaGroup.add(holoParticles);
+  baguaGroup.userData.holoParticles = holoParticles;
+  
+  // 点击交互标记
+  baguaGroup.userData.isBagua = true;
+  
+  scene.add(baguaGroup);
+}
+
+// 创建球体八卦纹理（只保留太极八卦，深度融入球体）
+function createBaguaSphereTexture() {
+  const w = 2048, h = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  
+  // ===== 背景 - 深蓝黑色渐变（上一版颜色，衬托金色文字）=====
+  const bgGrad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w/2);
+  bgGrad.addColorStop(0, '#12122a');
+  bgGrad.addColorStop(0.4, '#0e0e22');
+  bgGrad.addColorStop(0.7, '#0a0a18');
+  bgGrad.addColorStop(1, '#060610');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, w, h);
+  
+  // 球体表面纹理 - 模拟金属质感的噪点
+  for (let i = 0; i < 5000; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const alpha = Math.random() * 0.03;
+    ctx.fillStyle = `rgba(100,150,255,${alpha})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+  
+  // 经纬线（淡淡的，增加球体感）
+  ctx.strokeStyle = 'rgba(100,150,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 24; i++) {
+    const x = (i / 24) * w;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let i = 0; i < 12; i++) {
+    const y = (i / 12) * h;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  
+  // ===== 正面中心：大太极图（深度融入球体）=====
+  const cx = w / 4, cy = h / 2;
+  const taijiR = 160;
+  
+  // 太极图外圈光晕（融入感）
+  const taijiGlow = ctx.createRadialGradient(cx, cy, taijiR * 0.5, cx, cy, taijiR * 1.8);
+  taijiGlow.addColorStop(0, 'rgba(212,175,55,0.15)');
+  taijiGlow.addColorStop(0.5, 'rgba(212,175,55,0.05)');
+  taijiGlow.addColorStop(1, 'rgba(212,175,55,0)');
+  ctx.fillStyle = taijiGlow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, taijiR * 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 太极图主体
+  ctx.save();
+  // 阳半（金色）
+  ctx.beginPath();
+  ctx.arc(cx, cy, taijiR, 0, Math.PI * 2);
+  const yangGrad = ctx.createRadialGradient(cx - taijiR * 0.3, cy - taijiR * 0.3, 0, cx, cy, taijiR);
+  yangGrad.addColorStop(0, '#f5e6c8');
+  yangGrad.addColorStop(0.7, '#d4af37');
+  yangGrad.addColorStop(1, '#a88828');
+  ctx.fillStyle = yangGrad;
+  ctx.fill();
+  
+  // 阴半（深色）
+  ctx.beginPath();
+  ctx.arc(cx, cy, taijiR, -Math.PI/2, Math.PI/2);
+  const yinGrad = ctx.createRadialGradient(cx + taijiR * 0.3, cy + taijiR * 0.3, 0, cx, cy, taijiR);
+  yinGrad.addColorStop(0, '#2a1f0e');
+  yinGrad.addColorStop(0.7, '#1a1208');
+  yinGrad.addColorStop(1, '#0d0a03');
+  ctx.fillStyle = yinGrad;
+  ctx.fill();
+  
+  // 阴中阳
+  ctx.beginPath();
+  ctx.arc(cx, cy - taijiR/2, taijiR/2, 0, Math.PI*2);
+  ctx.fillStyle = yinGrad;
+  ctx.fill();
+  
+  // 阳中阴
+  ctx.beginPath();
+  ctx.arc(cx, cy + taijiR/2, taijiR/2, 0, Math.PI*2);
+  ctx.fillStyle = yangGrad;
+  ctx.fill();
+  
+  // 阴中阳点
+  ctx.beginPath();
+  ctx.arc(cx, cy - taijiR/2, taijiR/5, 0, Math.PI*2);
+  ctx.fillStyle = yangGrad;
+  ctx.fill();
+  
+  // 阳中阴点
+  ctx.beginPath();
+  ctx.arc(cx, cy + taijiR/2, taijiR/5, 0, Math.PI*2);
+  ctx.fillStyle = yinGrad;
+  ctx.fill();
+  
+  // 太极图金边（融入感，不突兀）
+  ctx.beginPath();
+  ctx.arc(cx, cy, taijiR, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(212,175,55,0.4)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+  
+  // ===== 八卦符号环绕太极（深度融入，带发光）=====
+  const baguaOrder = [
+    { name: '乾', symbol: '☰', angle: -Math.PI/2 },
+    { name: '兑', symbol: '☱', angle: -Math.PI/4 },
+    { name: '离', symbol: '☲', angle: 0 },
+    { name: '震', symbol: '☳', angle: Math.PI/4 },
+    { name: '坤', symbol: '☷', angle: Math.PI/2 },
+    { name: '艮', symbol: '☶', angle: 3*Math.PI/4 },
+    { name: '坎', symbol: '☵', angle: Math.PI },
+    { name: '巽', symbol: '☴', angle: -3*Math.PI/4 }
+  ];
+  
+  const baguaR = 340;
+  baguaOrder.forEach(b => {
+    const x = cx + Math.cos(b.angle) * baguaR;
+    const y = cy + Math.sin(b.angle) * baguaR;
+    
+    // 八卦符号背景光晕（融入感）
+    const symbolGlow = ctx.createRadialGradient(x, y, 0, x, y, 70);
+    symbolGlow.addColorStop(0, 'rgba(212,175,55,0.2)');
+    symbolGlow.addColorStop(0.5, 'rgba(212,175,55,0.05)');
+    symbolGlow.addColorStop(1, 'rgba(212,175,55,0)');
+    ctx.fillStyle = symbolGlow;
+    ctx.beginPath();
+    ctx.arc(x, y, 70, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 八卦符号（大尺寸，自发光效果）
+    ctx.font = 'bold 80px "Noto Serif SC", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffaa00';
+    ctx.shadowBlur = 25;
+    ctx.fillText(b.symbol, x, y - 10);
+    ctx.shadowBlur = 0;
+    
+    // 卦名（小一些，融入感）
+    ctx.font = 'bold 28px "Noto Serif SC", serif';
+    ctx.fillStyle = 'rgba(212,175,55,0.8)';
+    ctx.shadowColor = '#d4af37';
+    ctx.shadowBlur = 10;
+    ctx.fillText(b.name, x, y + 45);
+    ctx.shadowBlur = 0;
+  });
+  
+  // ===== 背面中心：也放太极八卦（保持全球面一致）=====
+  const cx2 = 3 * w / 4, cy2 = h / 2;
+  
+  // 背面太极光晕
+  const taijiGlow2 = ctx.createRadialGradient(cx2, cy2, taijiR * 0.5, cx2, cy2, taijiR * 1.8);
+  taijiGlow2.addColorStop(0, 'rgba(212,175,55,0.12)');
+  taijiGlow2.addColorStop(0.5, 'rgba(212,175,55,0.04)');
+  taijiGlow2.addColorStop(1, 'rgba(212,175,55,0)');
+  ctx.fillStyle = taijiGlow2;
+  ctx.beginPath();
+  ctx.arc(cx2, cy2, taijiR * 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 背面太极图（稍小一些）
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2, taijiR * 0.8, 0, Math.PI * 2);
+  ctx.fillStyle = yangGrad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2, taijiR * 0.8, -Math.PI/2, Math.PI/2);
+  ctx.fillStyle = yinGrad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2 - taijiR*0.4, taijiR*0.4, 0, Math.PI*2);
+  ctx.fillStyle = yinGrad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2 + taijiR*0.4, taijiR*0.4, 0, Math.PI*2);
+  ctx.fillStyle = yangGrad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2 - taijiR*0.4, taijiR*0.16, 0, Math.PI*2);
+  ctx.fillStyle = yangGrad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2 + taijiR*0.4, taijiR*0.16, 0, Math.PI*2);
+  ctx.fillStyle = yinGrad;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx2, cy2, taijiR * 0.8, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(212,175,55,0.3)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+  
+  // 背面八卦符号（稍小一些）
+  baguaOrder.forEach(b => {
+    const x = cx2 + Math.cos(b.angle) * baguaR * 0.85;
+    const y = cy2 + Math.sin(b.angle) * baguaR * 0.85;
+    
+    const symbolGlow = ctx.createRadialGradient(x, y, 0, x, y, 55);
+    symbolGlow.addColorStop(0, 'rgba(212,175,55,0.15)');
+    symbolGlow.addColorStop(1, 'rgba(212,175,55,0)');
+    ctx.fillStyle = symbolGlow;
+    ctx.beginPath();
+    ctx.arc(x, y, 55, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.font = 'bold 60px "Noto Serif SC", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#e6c87a';
+    ctx.shadowColor = '#d4af37';
+    ctx.shadowBlur = 18;
+    ctx.fillText(b.symbol, x, y);
+    ctx.shadowBlur = 0;
+  });
+  
+  // ===== 装饰性刻度圈（淡淡的，增加专业感）=====
+  for (let centerX of [cx, cx2]) {
+    for (let ring = 0; ring < 2; ring++) {
+      const r = 420 + ring * 50;
+      ctx.beginPath();
+      ctx.arc(centerX, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(212,175,55,${0.15 - ring * 0.05})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // 刻度
+      for (let i = 0; i < 60; i++) {
+        const angle = (i / 60) * Math.PI * 2;
+        const isMajor = i % 15 === 0;
+        const tickLen = isMajor ? 18 : 7;
+        ctx.beginPath();
+        ctx.moveTo(centerX + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+        ctx.lineTo(centerX + Math.cos(angle) * (r - tickLen), cy + Math.sin(angle) * (r - tickLen));
+        ctx.strokeStyle = isMajor ? 'rgba(212,175,55,0.4)' : 'rgba(212,175,55,0.2)';
+        ctx.lineWidth = isMajor ? 3 : 1;
+        ctx.stroke();
+      }
+    }
+  }
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+
+// 辅助函数：画太极图
+function drawTaiji(ctx, cx, cy, r, yangColor, yinColor, edgeColor) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = yangColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI/2, Math.PI/2);
+  ctx.fillStyle = yinColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy - r/2, r/2, 0, Math.PI*2);
+  ctx.fillStyle = yinColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy + r/2, r/2, 0, Math.PI*2);
+  ctx.fillStyle = yangColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy - r/2, r/5, 0, Math.PI*2);
+  ctx.fillStyle = yangColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy + r/2, r/5, 0, Math.PI*2);
+  ctx.fillStyle = yinColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = edgeColor;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = edgeColor;
+  ctx.shadowBlur = 20;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// 辅助函数：画八卦符号
+function drawBaguaSymbol(ctx, x, y, symbol, name, nature, symbolColor, textColor) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, 30, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(10,10,24,0.9)';
+  ctx.fill();
+  ctx.strokeStyle = symbolColor;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = symbolColor;
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.font = 'bold 32px "Noto Serif SC", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = symbolColor;
+  ctx.shadowColor = symbolColor;
+  ctx.shadowBlur = 8;
+  ctx.fillText(symbol, x, y - 5);
+  ctx.shadowBlur = 0;
+  ctx.font = 'bold 12px "Noto Serif SC", serif';
+  ctx.fillStyle = textColor;
+  ctx.fillText(name, x, y + 16);
+  ctx.font = 'bold 9px "Noto Serif SC", serif';
+  ctx.fillStyle = '#8a7a5c';
+  ctx.fillText(nature, x, y + 26);
+  ctx.restore();
+}
+
+// 辅助函数：画大尺寸八卦符号（用于高分辨率球体）
+function drawBaguaSymbolLarge(ctx, x, y, symbol, name, nature, symbolColor, textColor) {
+  ctx.save();
+  // 背景圆
+  ctx.beginPath();
+  ctx.arc(x, y, 60, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(10,10,24,0.95)';
+  ctx.fill();
+  ctx.strokeStyle = symbolColor;
+  ctx.lineWidth = 4;
+  ctx.shadowColor = symbolColor;
+  ctx.shadowBlur = 20;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // 内圈装饰
+  ctx.beginPath();
+  ctx.arc(x, y, 50, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(212,175,55,0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // 八卦符号
+  ctx.font = 'bold 64px "Noto Serif SC", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = symbolColor;
+  ctx.shadowColor = symbolColor;
+  ctx.shadowBlur = 15;
+  ctx.fillText(symbol, x, y - 10);
+  ctx.shadowBlur = 0;
+  // 卦名
+  ctx.font = 'bold 24px "Noto Serif SC", serif';
+  ctx.fillStyle = textColor;
+  ctx.fillText(name, x, y + 32);
+  // 自然属性
+  ctx.font = 'bold 18px "Noto Serif SC", serif';
+  ctx.fillStyle = '#8a7a5c';
+  ctx.fillText(nature, x, y + 52);
+  ctx.restore();
+}
+
+
+// 全息粒子环
+function createHoloParticles(radius, count) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const yOffset = (Math.random() - 0.5) * 8;
+    positions[i*3] = Math.cos(angle) * (radius + Math.random() * 3);
+    positions[i*3+1] = yOffset;
+    positions[i*3+2] = Math.sin(angle) * (radius + Math.random() * 3);
+  }
+  
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  
+  const material = new THREE.PointsMaterial({
+    color: 0x66ccff,
+    size: 1.5,
+    transparent: true,
+    opacity: 0.6,
+    blending: THREE.AdditiveBlending
+  });
+  
+  return new THREE.Points(geometry, material);
+}
+
+// 龟壳
+function createTurtle() {
+  turtleGroup = new THREE.Group();
+  // 初始状态：隐藏，位置在前方偏下，和球体分开
+  turtleGroup.position.set(0, 30, 75);
+  turtleGroup.visible = false;
+  turtleGroup.scale.set(0.01, 0.01, 0.01);
+  turtleGroup.userData.state = 'hidden';
+  turtleGroup.userData.targetPos = new THREE.Vector3(0, 30, 75);
+  turtleGroup.userData.targetScale = 1;
+  
+  // 龟壳主体（半球）
+  const shellGeo = new THREE.SphereGeometry(25, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  const shellMat = new THREE.MeshStandardMaterial({
+    color: 0x5c3a1e,
+    roughness: 0.7,
+    metalness: 0.2,
+    side: THREE.DoubleSide
+  });
+  const shell = new THREE.Mesh(shellGeo, shellMat);
+  shell.castShadow = true;
+  turtleGroup.add(shell);
+  
+  // 龟壳纹理线
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const lineGeo = new THREE.TorusGeometry(20, 0.3, 8, 32, Math.PI);
+    const lineMat = new THREE.MeshStandardMaterial({
+      color: 0x3d2410,
+      roughness: 0.8
+    });
+    const line = new THREE.Mesh(lineGeo, lineMat);
+    line.rotation.y = angle;
+    line.rotation.x = Math.PI / 2;
+    turtleGroup.add(line);
+  }
+  
+  // 龟壳边缘
+  const edgeGeo = new THREE.TorusGeometry(25, 2, 16, 32);
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: 0x4a2e15,
+    roughness: 0.6,
+    metalness: 0.3
+  });
+  const edge = new THREE.Mesh(edgeGeo, edgeMat);
+  edge.rotation.x = Math.PI / 2;
+  turtleGroup.add(edge);
+  
+  // 铜钱（3枚）
+  for (let i = 0; i < 3; i++) {
+    const coinGeo = new THREE.CylinderGeometry(5, 5, 1.2, 16);
+    const coinMat = new THREE.MeshStandardMaterial({
+      color: 0xc9a84c,
+      roughness: 0.3,
+      metalness: 0.9
+    });
+    const coin = new THREE.Mesh(coinGeo, coinMat);
+    coin.position.set(
+      Math.cos(i * 2.1) * 8,
+      -2,
+      Math.sin(i * 2.1) * 8
+    );
+    coin.rotation.x = Math.random() * Math.PI;
+    coin.rotation.z = Math.random() * Math.PI;
+    coin.userData.originalPos = coin.position.clone();
+    turtleGroup.add(coin);
+  }
+  
+  scene.add(turtleGroup);
+}
+
+// 创建竖向文字效果（修行小说传授道法风格）
+function createVerticalText() {
+  verticalTextGroup = new THREE.Group();
+  verticalTextGroup.visible = false;
+  verticalTextGroup.position.set(0, 30, 80); // 前方位置
+  
+  // 文字容器背景（半透明卷轴效果）
+  const scrollBgGeo = new THREE.PlaneGeometry(50, 180);
+  const scrollBgMat = new THREE.MeshBasicMaterial({
+    color: 0x1a0f05,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide
+  });
+  const scrollBg = new THREE.Mesh(scrollBgGeo, scrollBgMat);
+  verticalTextGroup.add(scrollBg);
+  
+  // 卷轴边框
+  const scrollBorderGeo = new THREE.RingGeometry(24, 26, 4);
+  const scrollBorderMat = new THREE.MeshBasicMaterial({
+    color: 0xd4af37,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide
+  });
+  const scrollBorderTop = new THREE.Mesh(scrollBorderGeo, scrollBorderMat);
+  scrollBorderTop.position.y = 90;
+  scrollBorderTop.rotation.z = Math.PI / 4;
+  verticalTextGroup.add(scrollBorderTop);
+  
+  const scrollBorderBottom = scrollBorderTop.clone();
+  scrollBorderBottom.position.y = -90;
+  verticalTextGroup.add(scrollBorderBottom);
+  
+  // 竖向文字平面（动态更新纹理）
+  const textGeo = new THREE.PlaneGeometry(40, 160);
+  const textMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const textPlane = new THREE.Mesh(textGeo, textMat);
+  verticalTextGroup.add(textPlane);
+  verticalTextGroup.userData.textPlane = textPlane;
+  
+  // 装饰性光点
+  for (let i = 0; i < 20; i++) {
+    const particleGeo = new THREE.SphereGeometry(0.5, 8, 8);
+    const particleMat = new THREE.MeshBasicMaterial({
+      color: 0xd4af37,
+      transparent: true,
+      opacity: 0.6
+    });
+    const particle = new THREE.Mesh(particleGeo, particleMat);
+    particle.position.set(
+      (Math.random() - 0.5) * 45,
+      (Math.random() - 0.5) * 170,
+      (Math.random() - 0.5) * 5
+    );
+    particle.userData.floatSpeed = 0.3 + Math.random() * 0.5;
+    particle.userData.floatOffset = Math.random() * Math.PI * 2;
+    verticalTextGroup.add(particle);
+  }
+  
+  scene.add(verticalTextGroup);
+}
+
+// 更新竖向文字内容
+function updateVerticalText(lines) {
+  if (!verticalTextGroup || !verticalTextGroup.userData.textPlane) return;
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  
+  // 背景透明
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // 竖向文字（从右到左排列）
+  const lineHeight = 120;
+  const startX = canvas.width - 60;
+  
+  lines.forEach((line, lineIdx) => {
+    const chars = line.split('');
+    const x = startX - lineIdx * 70;
+    
+    chars.forEach((char, charIdx) => {
+      const y = 80 + charIdx * lineHeight;
+      
+      // 文字光晕
+      ctx.font = 'bold 64px "Noto Serif SC", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#d4af37';
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 20;
+      ctx.fillText(char, x, y);
+      ctx.shadowBlur = 0;
+      
+      // 文字高光
+      ctx.fillStyle = '#fff5e0';
+      ctx.fillText(char, x - 1, y - 1);
+    });
+  });
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  
+  const textPlane = verticalTextGroup.userData.textPlane;
+  textPlane.material.map = texture;
+  textPlane.material.needsUpdate = true;
+}
+
+// 显示竖向文字
+function showVerticalText(lines, duration = 2000) {
+  if (!verticalTextGroup) return;
+  
+  updateVerticalText(lines);
+  verticalTextGroup.visible = true;
+  verticalTextGroup.userData.textPlane.material.opacity = 0;
+  verticalTextGroup.position.y = 10;
+  
+  // 淡入动画
+  let opacity = 0;
+  const fadeIn = setInterval(() => {
+    opacity += 0.05;
+    if (opacity >= 0.95) {
+      opacity = 0.95;
+      clearInterval(fadeIn);
+    }
+    if (verticalTextGroup && verticalTextGroup.userData.textPlane) {
+      verticalTextGroup.userData.textPlane.material.opacity = opacity;
+    }
+  }, 30);
+  
+  // 持续时间后淡出
+  setTimeout(() => {
+    hideVerticalText();
+  }, duration);
+}
+
+// 隐藏竖向文字
+function hideVerticalText() {
+  if (!verticalTextGroup) return;
+  let opacity = verticalTextGroup.userData.textPlane.material.opacity;
+  const fadeOut = setInterval(() => {
+    opacity -= 0.05;
+    if (opacity <= 0) {
+      opacity = 0;
+      verticalTextGroup.visible = false;
+      clearInterval(fadeOut);
+    }
+    if (verticalTextGroup && verticalTextGroup.userData.textPlane) {
+      verticalTextGroup.userData.textPlane.material.opacity = opacity;
+    }
+  }, 30);
+}
+
+// 飞升光柱
+function createLightBeam() {
+  const beamGeo = new THREE.CylinderGeometry(8, 20, 200, 32, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xd4af37,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  lightBeam = new THREE.Mesh(beamGeo, beamMat);
+  lightBeam.position.y = 100;
+  lightBeam.visible = false;
+  scene.add(lightBeam);
+  
+  // 光柱顶部光球
+  const orbGeo = new THREE.SphereGeometry(15, 32, 32);
+  const orbMat = new THREE.MeshBasicMaterial({
+    color: 0xfff5e0,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending
+  });
+  lightBeam.userData.orb = new THREE.Mesh(orbGeo, orbMat);
+  lightBeam.userData.orb.position.y = 100;
+  lightBeam.userData.orb.visible = false;
+  scene.add(lightBeam.userData.orb);
+}
+
+// 显示光柱
+function showLightBeam(duration = 2000) {
+  if (!lightBeam) return;
+  lightBeam.visible = true;
+  lightBeam.userData.orb.visible = true;
+  lightBeam.userData.orb.position.y = 80;
+  
+  let startTime = Date.now();
+  function animateBeam() {
+    const elapsed = Date.now() - startTime;
+    const progress = elapsed / duration;
+    
+    if (progress < 1) {
+      const opacity = Math.sin(progress * Math.PI) * 0.4;
+      lightBeam.material.opacity = opacity;
+      lightBeam.userData.orb.material.opacity = Math.sin(progress * Math.PI) * 0.8;
+      lightBeam.userData.orb.position.y = 80 + progress * 80;
+      lightBeam.userData.orb.scale.setScalar(1 + progress * 0.5);
+      requestAnimationFrame(animateBeam);
+    } else {
+      lightBeam.visible = false;
+      lightBeam.userData.orb.visible = false;
+      lightBeam.material.opacity = 0;
+    }
+  }
+  animateBeam();
+}
+
+// 窗口大小调整（带防抖）
+let resizeTimeout = null;
+function onWindowResize() {
+  if (resizeTimeout) clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // 移动设备调整相机距离
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && window.innerWidth < 768) {
+      cameraDistance = Math.max(200, cameraDistance);
+      updateCameraPosition();
+    }
+  }, 150);
+}
+
+// 动画循环
+let time = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  time += 0.01;
+  
+  // 星空缓慢旋转
+  if (starField) {
+    starField.rotation.y += 0.0002;
+  }
+  
+  // 罗盘自动旋转
+  if (compassGroup && compassAutoRotate && !isShaking) {
+    compassGroup.rotation.y += 0.001;
+  }
+  
+  // 底座科技感动画
+  if (compassGroup) {
+    // 能量环旋转
+    if (compassGroup.userData.techRings) {
+      compassGroup.userData.techRings.forEach((ring, i) => {
+        if (ring.userData.rotateSpeed) {
+          ring.rotation.z += ring.userData.rotateSpeed;
+        }
+        // 脉动效果
+        const pulse = 0.3 + Math.sin(time * 1.5 + i) * 0.15;
+        ring.material.opacity = pulse;
+      });
+    }
+    // 科技粒子上升
+    if (compassGroup.userData.techParticles && compassGroup.userData.techParticleSpeeds) {
+      const positions = compassGroup.userData.techParticles.geometry.attributes.position.array;
+      const speeds = compassGroup.userData.techParticleSpeeds;
+      for (let i = 0; i < speeds.length; i++) {
+        positions[i*3+1] += speeds[i] * 0.3;
+        if (positions[i*3+1] > 35) {
+          positions[i*3+1] = 0;
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 85 + Math.random() * 50;
+          positions[i*3] = Math.cos(angle) * radius;
+          positions[i*3+2] = Math.sin(angle) * radius;
+        }
+      }
+      compassGroup.userData.techParticles.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+  
+  // 八卦自动旋转和悬浮
+  if (baguaGroup) {
+    if (baguaAutoRotate && !isShaking && !baguaPaused) {
+      // 速度渐变
+      baguaRotateSpeed += (baguaRotateTargetSpeed - baguaRotateSpeed) * 0.05;
+      baguaGroup.rotation.y += baguaRotateSpeed;
+    } else if (isShaking) {
+      // 摇卦时快速转动
+      baguaRotateSpeed += (0.05 - baguaRotateSpeed) * 0.08;
+      baguaGroup.rotation.y += baguaRotateSpeed;
+    }
+    // 悬浮效果
+    baguaGroup.position.y = 85 + Math.sin(time * 0.7) * 4;
+    
+    // 球体独立自转，确保各面信息都能看到
+    if (baguaGroup.userData.sphere) {
+      baguaGroup.userData.sphere.rotation.y += 0.003;
+      baguaGroup.userData.sphere.rotation.x += 0.001;
+    }
+    
+    // 球体光晕脉动
+    if (baguaGroup.userData.sphereGlow) {
+      const glowPulse = 0.06 + Math.sin(time * 1.5) * 0.03;
+      baguaGroup.userData.sphereGlow.material.opacity = glowPulse;
+      const glowScale = 1 + Math.sin(time * 1.5) * 0.02;
+      baguaGroup.userData.sphereGlow.scale.set(glowScale, glowScale, glowScale);
+    }
+    
+    // 浑天仪环独立旋转
+    if (baguaGroup.userData.ring2) {
+      baguaGroup.userData.ring2.rotation.x += 0.003;
+    }
+    if (baguaGroup.userData.ring3) {
+      baguaGroup.userData.ring3.rotation.z += 0.002;
+    }
+    
+    // 浑天仪拆解动画
+    const explodeSpeed = 0.04;
+    if (baguaExplodeProgress < baguaExplodeTarget) {
+      baguaExplodeProgress = Math.min(baguaExplodeProgress + explodeSpeed, baguaExplodeTarget);
+    } else if (baguaExplodeProgress > baguaExplodeTarget) {
+      baguaExplodeProgress = Math.max(baguaExplodeProgress - explodeSpeed, baguaExplodeTarget);
+    }
+    // 应用拆解位置到三环
+    ['ring1', 'ring2', 'ring3'].forEach(ringName => {
+      const ring = baguaGroup.userData[ringName];
+      if (ring && ring.userData.originalPos && ring.userData.explodedPos) {
+        ring.position.lerpVectors(
+          ring.userData.originalPos,
+          ring.userData.explodedPos,
+          baguaExplodeProgress
+        );
+      }
+    });
+    
+    // 全息粒子旋转
+    if (baguaGroup.userData.holoParticles) {
+      baguaGroup.userData.holoParticles.rotation.y += 0.004;
+    }
+  }
+  
+  // 龟壳摇动动画
+  if (isShaking && turtleGroup && turtleGroup.visible) {
+    turtleGroup.rotation.x = Math.sin(time * 15) * 0.2;
+    turtleGroup.rotation.z = Math.cos(time * 12) * 0.15;
+    turtleGroup.position.y = 30 + Math.sin(time * 10) * 5;
+    
+    // 铜钱跳动
+    turtleGroup.children.forEach((child, i) => {
+      if (i > 3 && child.userData.originalPos) {
+        child.position.y = child.userData.originalPos.y + Math.abs(Math.sin(time * 20 + i)) * 8;
+        child.rotation.x += 0.2;
+        child.rotation.z += 0.15;
+      }
+    });
+  } else if (turtleGroup && turtleGroup.visible) {
+    // 非摇卦状态时恢复旋转
+    turtleGroup.rotation.x *= 0.9;
+    turtleGroup.rotation.z *= 0.9;
+    turtleGroup.position.y = 30;
+  }
+  
+  // 竖向文字飘动动画
+  if (verticalTextGroup && verticalTextGroup.visible) {
+    // 缓慢上升飘动
+    verticalTextGroup.position.y = 30 + Math.sin(time * 0.8) * 5;
+    verticalTextGroup.position.z = 80 + Math.sin(time * 0.5) * 3;
+    // 轻微旋转
+    verticalTextGroup.rotation.y = Math.sin(time * 0.3) * 0.05;
+    
+    // 装饰光点飘动
+    verticalTextGroup.children.forEach((child, i) => {
+      if (child.userData.floatSpeed) {
+        child.position.y += child.userData.floatSpeed * 0.1;
+        if (child.position.y > 90) child.position.y = -90;
+        child.material.opacity = 0.3 + Math.sin(time * 2 + child.userData.floatOffset) * 0.3;
+      }
+    });
+  }
+  
+  updateCameraPosition();
+  renderer.render(scene, camera);
+}
+
+// 相机位置更新
+function updateCameraPosition() {
+  if (!camera) return;
+  const x = camDistance * Math.cos(camAngleV) * Math.sin(camAngleH);
+  const y = camTargetY + camDistance * Math.sin(camAngleV);
+  const z = camDistance * Math.cos(camAngleV) * Math.cos(camAngleH);
+  camera.position.set(x, y, z);
+  camera.lookAt(0, camTargetY, 0);
+}
+
+// 相机拖拽控制
+function onCamPointerDown(e) {
+  isDragging = true;
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+}
+
+function onCamPointerMove(e) {
+  if (!isDragging) return;
+  const deltaX = e.clientX - lastMouseX;
+  const deltaY = e.clientY - lastMouseY;
+  camAngleH -= deltaX * 0.005;
+  camAngleV += deltaY * 0.005;
+  camAngleV = Math.max(0.1, Math.min(1.3, camAngleV));
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+  updateCameraPosition();
+}
+
+function onCamPointerUp() {
+  isDragging = false;
+}
+
+function onCamWheel(e) {
+  e.preventDefault();
+  camDistance += e.deltaY * 0.3;
+  camDistance = Math.max(100, Math.min(500, camDistance));
+  updateCameraPosition();
+}
+
+// ============================================================
+// UI交互逻辑
+// ============================================================
+
+let currentMode = 'liuyao';
+let liuyaoYaoResults = [];
+let liuyaoShakeCount = 0;
+
+// 切换模式
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    switchMode(mode);
+  });
+});
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
+  document.getElementById('panel-' + mode).style.display = 'block';
+  
+  // 罗盘模式隐藏信息面板
+  const infoPanel = document.getElementById('infoPanel');
+  if (mode === 'compass') {
+    infoPanel.classList.add('hidden');
+  } else {
+    infoPanel.classList.remove('hidden');
+  }
+}
+
+// 规则说明折叠
+function toggleRules(id) {
+  const content = document.getElementById(id);
+  const arrow = document.getElementById(id + 'Arrow');
+  content.classList.toggle('open');
+  arrow.textContent = content.classList.contains('open') ? '▲' : '▼';
+}
+
+// 提示消息
+function showToast(msg, duration = 2000) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+// 复制到剪贴板
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('已复制到剪贴板，可粘贴给AI分析');
+    }).catch(() => {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showToast('已复制到剪贴板，可粘贴给AI分析');
+  } catch (e) {
+    showToast('复制失败，请手动复制');
+  }
+  document.body.removeChild(textarea);
+}
+
+// 复制六爻结果
+function copyLiuyaoResult() {
+  const question = document.getElementById('liuyaoQuestion').value.trim();
+  const symbol = document.getElementById('liuyaoSymbol').textContent;
+  const name = document.getElementById('liuyaoName').textContent;
+  const guaci = document.getElementById('liuyaoGuaci').textContent;
+  const interpret = document.getElementById('liuyaoInterpret').textContent;
+  
+  let md = `# 六爻起卦结果\n\n`;
+  md += `**所占之事：** ${question}\n\n`;
+  md += `## 本卦\n\n`;
+  md += `**卦象：** ${symbol} ${name}\n\n`;
+  md += `**卦辞：** ${guaci}\n\n`;
+  md += `**白话解读：** ${interpret}\n\n`;
+  
+  // 动爻
+  const dongYaoSection = document.getElementById('liuyaoDongYaoSection');
+  if (dongYaoSection && dongYaoSection.style.display !== 'none') {
+    const dongYao = document.getElementById('liuyaoDongYao').textContent;
+    md += `## 动爻爻辞\n\n${dongYao}\n\n`;
+  }
+  
+  // 变卦
+  const bianGua = document.getElementById('liuyaoBianGua');
+  if (bianGua && bianGua.style.display !== 'none') {
+    const bianSymbol = document.getElementById('bianSymbol').textContent;
+    const bianName = document.getElementById('bianName').textContent;
+    md += `## 变卦\n\n**卦象：** ${bianSymbol} ${bianName}\n\n`;
+  }
+  
+  md += `---\n\n*以上卦象由玄机阁3D罗盘生成，可粘贴给AI进行深入分析*`;
+  
+  copyToClipboard(md);
+}
+
+// 复制梅花结果
+function copyMeihuaResult() {
+  const question = document.getElementById('meihuaQuestion').value.trim();
+  const symbol = document.getElementById('meihuaSymbol').textContent;
+  const name = document.getElementById('meihuaName').textContent;
+  const tiyong = document.getElementById('meihuaTiyong').textContent;
+  const guaci = document.getElementById('meihuaGuaci').textContent;
+  const interpret = document.getElementById('meihuaInterpret').textContent;
+  
+  let md = `# 梅花易数起卦结果\n\n`;
+  md += `**所占之事：** ${question}\n\n`;
+  md += `## 本卦\n\n`;
+  md += `**卦象：** ${symbol} ${name}\n\n`;
+  md += `**体用分析：** ${tiyong}\n\n`;
+  md += `**卦辞：** ${guaci}\n\n`;
+  md += `**白话解读：** ${interpret}\n\n`;
+  
+  // 变卦
+  const bianGua = document.getElementById('meihuaBianGua');
+  if (bianGua && bianGua.style.display !== 'none') {
+    const bianSymbol = document.getElementById('meihuaBianSymbol').textContent;
+    const bianName = document.getElementById('meihuaBianName').textContent;
+    md += `## 变卦\n\n**卦象：** ${bianSymbol} ${bianName}\n\n`;
+  }
+  
+  md += `---\n\n*以上卦象由玄机阁3D罗盘生成，可粘贴给AI进行深入分析*`;
+  
+  copyToClipboard(md);
+}
+
+// 复制八字结果
+function copyBaziResult() {
+  const year = document.getElementById('baziYear').value;
+  const month = document.getElementById('baziMonth').value;
+  const day = document.getElementById('baziDay').value;
+  const gender = document.getElementById('baziGender').value === 'male' ? '男' : '女';
+  const calendar = document.getElementById('baziCalendar').value === 'lunar' ? '农历' : '新历';
+  
+  const rizhu = document.getElementById('baziRizhu').textContent;
+  const wuxing = document.getElementById('baziWuxing').textContent;
+  const wangshuai = document.getElementById('baziWangshuai').textContent;
+  const shishen = document.getElementById('baziShishen').textContent;
+  const nayin = document.getElementById('baziNayin').textContent;
+  const dayun = document.getElementById('baziDayun').textContent;
+  const xingge = document.getElementById('baziXingge').textContent;
+  const shiye = document.getElementById('baziShiye').textContent;
+  const ganqing = document.getElementById('baziGanqing').textContent;
+  const jiankang = document.getElementById('baziJiankang').textContent;
+  const analysis = document.getElementById('baziAnalysis').textContent;
+  
+  let md = `# 八字命理排盘\n\n`;
+  md += `**出生日期：** ${year}年${month}月${day}日（${calendar}）\n\n`;
+  md += `**性别：** ${gender}\n\n`;
+  md += `## 日主信息\n\n${rizhu}\n\n`;
+  md += `## 五行统计\n\n${wuxing}\n\n`;
+  md += `## 五行旺衰与喜用神\n\n${wangshuai}\n\n`;
+  md += `## 十神分析\n\n${shishen}\n\n`;
+  md += `## 纳音五行\n\n${nayin}\n\n`;
+  md += `## 大运走势\n\n${dayun}\n\n`;
+  md += `## 性格特征\n\n${xingge}\n\n`;
+  md += `## 事业财运\n\n${shiye}\n\n`;
+  md += `## 感情婚姻\n\n${ganqing}\n\n`;
+  md += `## 健康提示\n\n${jiankang}\n\n`;
+  md += `## 命局简析与建议\n\n${analysis}\n\n`;
+  md += `---\n\n*以上命盘由玄机阁3D罗盘生成，可粘贴给AI进行深入分析*`;
+  
+  copyToClipboard(md);
+}
+
+// ========== 六爻摇卦 ==========
+document.getElementById('btnShake').addEventListener('click', startLiuyao);
+
+function startLiuyao() {
+  if (isShaking) return;
+  
+  const question = document.getElementById('liuyaoQuestion').value.trim();
+  if (!question) {
+    showToast('请先默念所占之事');
+    return;
+  }
+  
+  liuyaoYaoResults = [];
+  liuyaoShakeCount = 0;
+  document.getElementById('liuyaoResult').style.display = 'none';
+  
+  // 显示龟壳
+  showTurtle();
+  
+  // 开始摇卦
+  setTimeout(() => {
+    shakeOnce();
+  }, 800);
+}
+
+function showTurtle() {
+  if (!turtleGroup) return;
+  turtleGroup.visible = true;
+  turtleGroup.userData.state = 'showing';
+  turtleGroup.position.set(0, 30, 75);
+  turtleGroup.userData.targetScale = 1;
+  // 放大动画
+  let scale = 0.01;
+  const grow = setInterval(() => {
+    scale += 0.05;
+    if (scale >= 1) {
+      scale = 1;
+      clearInterval(grow);
+      turtleGroup.userData.state = 'shaking';
+    }
+    turtleGroup.scale.set(scale, scale, scale);
+  }, 20);
+}
+
+function hideTurtle() {
+  if (!turtleGroup) return;
+  turtleGroup.userData.state = 'hiding';
+  let scale = 1;
+  const shrink = setInterval(() => {
+    scale -= 0.05;
+    if (scale <= 0.01) {
+      scale = 0.01;
+      turtleGroup.visible = false;
+      turtleGroup.userData.state = 'hidden';
+      clearInterval(shrink);
+    }
+    turtleGroup.scale.set(scale, scale, scale);
+  }, 20);
+}
+
+function shakeOnce() {
+  if (liuyaoShakeCount >= 6) {
+    finishLiuyao();
+    return;
+  }
+  
+  isShaking = true;
+  liuyaoShakeCount++;
+  showToast(`第 ${liuyaoShakeCount} 爻 · 摇动中…`, 1200);
+  
+  setTimeout(() => {
+    const result = shakeCoins();
+    liuyaoYaoResults.push(result);
+    isShaking = false;
+    
+    const yaoName = result.value === 1 ? '阳爻' : '阴爻';
+    const changingText = result.changing ? '动爻' : '静爻';
+    showToast(`第 ${liuyaoShakeCount} 爻：${yaoName}（${changingText}）`, 1500);
+    
+    setTimeout(() => shakeOnce(), 800);
+  }, 1500);
+}
+
+function finishLiuyao() {
+  // 隐藏龟壳
+  hideTurtle();
+  
+  // 浑天仪停止转动3秒，然后恢复默认转动
+  baguaPaused = true;
+  baguaRotateSpeed = 0;
+  setTimeout(() => {
+    baguaPaused = false;
+    baguaRotateTargetSpeed = 0.002;
+  }, 3000);
+  
+  setTimeout(() => {
+    const hexagram = getHexagramFromYao(liuyaoYaoResults);
+    const bianGua = getBianGua(hexagram);
+    
+    // 显示本卦
+    document.getElementById('liuyaoSymbol').textContent = getGuaSymbol(hexagram.upper, hexagram.lower);
+    document.getElementById('liuyaoName').textContent = hexagram.data.name;
+    document.getElementById('liuyaoPinyin').textContent = hexagram.data.name.toUpperCase();
+    document.getElementById('liuyaoGuaci').textContent = hexagram.data.guaci;
+    
+    // 优化白话解读，结合所占之事
+    const question = document.getElementById('liuyaoQuestion').value.trim();
+    const optimizedInterpret = optimizeLiuyaoInterpret(hexagram, question, !!bianGua);
+    document.getElementById('liuyaoInterpret').innerHTML = optimizedInterpret.replace(/\n/g, '<br>');
+    
+    // 显示六爻
+    const yaoContainer = document.getElementById('liuyaoYao');
+    yaoContainer.innerHTML = '';
+    liuyaoYaoResults.forEach((yao, i) => {
+      const div = document.createElement('div');
+      div.className = 'yao-line';
+      const yaoType = yao.value === 1 ? 'yang' : 'yin';
+      const changingClass = yao.changing ? ' changing' : '';
+      div.innerHTML = `<span class="yao-label">${YAO_NAMES[i]}</span><div class="yao-bar ${yaoType}${changingClass}"></div>`;
+      yaoContainer.appendChild(div);
+    });
+    
+    // 显示变卦
+    const bianGuaDiv = document.getElementById('liuyaoBianGua');
+    const dongYaoSection = document.getElementById('liuyaoDongYaoSection');
+    if (bianGua) {
+      bianGuaDiv.style.display = 'block';
+      document.getElementById('bianSymbol').textContent = getGuaSymbol(bianGua.upper, bianGua.lower);
+      document.getElementById('bianName').textContent = bianGua.data.name;
+      
+      // 动爻辞
+      const changingIndices = liuyaoYaoResults.map((y,i) => y.changing ? i : -1).filter(i => i >= 0);
+      if (changingIndices.length > 0 && changingIndices.length <= 3) {
+        dongYaoSection.style.display = 'block';
+        const dongYaoText = changingIndices.map(i => {
+          return `${YAO_NAMES[i]}爻：${getYaoCi(hexagram, i)}`;
+        }).join('<br>');
+        document.getElementById('liuyaoDongYao').innerHTML = dongYaoText;
+      } else {
+        dongYaoSection.style.display = 'none';
+      }
+    } else {
+      bianGuaDiv.style.display = 'none';
+      dongYaoSection.style.display = 'none';
+    }
+    
+    document.getElementById('liuyaoResult').style.display = 'block';
+  }, 1000);
+}
+
+function getGuaSymbol(upperIdx, lowerIdx) {
+  // 组合八卦符号
+  const upper = BAGUA[BAGUA_ORDER[upperIdx]];
+  const lower = BAGUA[BAGUA_ORDER[lowerIdx]];
+  return upper.symbol + lower.symbol;
+}
+
+// 优化六爻白话解读，结合所占之事
+function optimizeLiuyaoInterpret(hexagram, question, hasBianGua) {
+  const baseInterpret = hexagram.data.interpret || '';
+  const guaName = hexagram.data.name || '';
+  
+  // 判断所占之事的类型
+  let questionType = '综合';
+  const q = question.toLowerCase();
+  if (q.includes('工作') || q.includes('事业') || q.includes('升职') || q.includes('跳槽') || q.includes('创业')) {
+    questionType = '事业';
+  } else if (q.includes('感情') || q.includes('恋爱') || q.includes('婚姻') || q.includes('复合') || q.includes('桃花')) {
+    questionType = '感情';
+  } else if (q.includes('财') || q.includes('钱') || q.includes('投资') || q.includes('生意')) {
+    questionType = '财运';
+  } else if (q.includes('健康') || q.includes('病') || q.includes('身体')) {
+    questionType = '健康';
+  } else if (q.includes('考试') || q.includes('学习') || q.includes('升学')) {
+    questionType = '学业';
+  }
+  
+  // 针对不同类型的解读
+  const typeAdvice = {
+    '事业': '事业方面，此卦提示你需要把握当前的机遇，稳扎稳打。如果是求职或升职，近期会有好消息，但需要主动争取。创业则需谨慎评估风险，不宜盲目扩张。',
+    '感情': '感情方面，此卦显示缘分正在酝酿之中。单身者近期会遇到心仪的对象，已有伴侣者则需要多沟通、多包容。遇到矛盾时，换位思考是化解问题的关键。',
+    '财运': '财运方面，此卦预示财运逐渐好转，但不宜急于求成。正财稳定，偏财需谨慎。投资建议选择稳健的项目，避免高风险投机。量入为出，积累为先。',
+    '健康': '健康方面，此卦提醒你注意身体的调养。近期可能会有小的不适，需要及时休息和就医。保持规律的作息和均衡的饮食，适度运动，避免过度劳累。',
+    '学业': '学业方面，此卦显示学习状态良好，只要持之以恒，必有所成。考试运不错，但仍需认真复习。遇到难题时，多向老师同学请教，不要独自钻牛角尖。',
+    '综合': '综合来看，此卦提示你当前正处于一个关键的转折点。需要保持清醒的头脑，审时度势，做出正确的选择。凡事预则立，不预则废，提前做好规划是成功的关键。'
+  };
+  
+  // 吉凶判断
+  const goodGua = ['乾为天','坤为地','水天需','地天泰','天火同人','火天大有','地山谦','雷地豫','泽雷随','山风蛊','地泽临','风地观','火雷噬嗑','山火贲','山地剥','地雷复','天雷无妄','山天大畜','山雷颐','泽风大过','坎为水','离为火','咸恒','天山遁','雷天大壮','火地晋','地火明夷'];
+  const isGood = goodGua.some(g => guaName.includes(g.substring(0,2)));
+  
+  let result = `【所占之事】${question}\n\n`;
+  result += `【卦象基本含义】${baseInterpret}\n\n`;
+  result += `【针对${questionType}的解读】${typeAdvice[questionType]}\n\n`;
+  
+  if (hasBianGua) {
+    result += `【变卦提示】本卦有变爻，说明事情正在发展变化之中。当前的状态不是最终结果，需要灵活应对，根据形势的变化及时调整策略。变爻所指示的方向就是事情发展的趋势。\n\n`;
+  }
+  
+  result += `【总结建议】${isGood ? '此卦整体偏吉，只要顺势而为，必能有所收获。但仍需保持谦逊，不可骄傲自满。' : '此卦需要谨慎对待，不宜冒进。宜守不宜攻，宜静不宜动。等待时机成熟再行动，方能化险为夷。'}\n\n`;
+  result += `*以上解读仅供参考，具体情况还需结合实际进行判断。*`;
+  
+  return result;
+}
+
+function resetLiuyao() {
+  liuyaoYaoResults = [];
+  liuyaoShakeCount = 0;
+  document.getElementById('liuyaoResult').style.display = 'none';
+  document.getElementById('liuyaoQuestion').value = '';
+}
+
+// ========== 八字排盘 ==========
+document.getElementById('btnBazi').addEventListener('click', () => {
+  const year = parseInt(document.getElementById('baziYear').value);
+  const month = parseInt(document.getElementById('baziMonth').value);
+  const day = parseInt(document.getElementById('baziDay').value);
+  const hour = parseInt(document.getElementById('baziHour').value);
+  const gender = document.getElementById('baziGender').value;
+  const calendar = document.getElementById('baziCalendar').value;
+  
+  if (!year || !month || !day) {
+    showToast('请输入完整的出生日期');
+    return;
+  }
+  
+  // 农历转换提示（简化版，精确转换需专业算法）
+  let solarYear = year, solarMonth = month, solarDay = day;
+  if (calendar === 'lunar') {
+    showToast('农历模式：已按近似节气转换，精确结果请参考专业万年历', 2000);
+    // 简化：农历月份通常比公历晚约1个月
+    solarMonth = month + 1;
+    if (solarMonth > 12) {
+      solarMonth = 1;
+      solarYear = year + 1;
+    }
+  }
+  
+  // 浑天仪快速转动效果
+  isShaking = true;
+  showToast('正在排盘...', 1500);
+  
+  setTimeout(() => {
+    isShaking = false;
+    // 停止3秒后恢复
+    baguaPaused = true;
+    baguaRotateSpeed = 0;
+    setTimeout(() => {
+      baguaPaused = false;
+      baguaRotateTargetSpeed = 0.002;
+    }, 3000);
+    
+    const bazi = getBazi(solarYear, solarMonth, solarDay, hour, gender);
+    const analysis = analyzeBazi(bazi);
+  
+    // 显示八字（含十神）
+    const grid = document.getElementById('baziGrid');
+    const pillars = [
+      { label: '年柱', data: bazi.year, pos: 'year' },
+      { label: '月柱', data: bazi.month, pos: 'month' },
+      { label: '日柱', data: bazi.day, pos: 'day' },
+      { label: '时柱', data: bazi.hour, pos: 'hour' }
+    ];
+    
+    grid.innerHTML = pillars.map(p => {
+      const stemShishen = p.pos === 'day' ? '日主' : getShiShen(bazi.dayMasterWx, p.data.stemWx, true);
+      const branchShishen = p.pos === 'day' ? '—' : getShiShen(bazi.dayMasterWx, p.data.branchWx, false);
+      const nayin = NAYIN[p.data.stem + p.data.branch] || '—';
+      return `
+        <div class="bazi-pillar">
+          <div class="pillar-label">${p.label}</div>
+          <div class="pillar-stem">${p.data.stem}</div>
+          <div class="pillar-branch">${p.data.branch}</div>
+          <div class="pillar-wuxing">${p.data.stemWx}/${p.data.branchWx}</div>
+          <div class="pillar-shishen" style="font-size:11px;color:#a89060;margin-top:4px;">${stemShishen}/${branchShishen}</div>
+          <div class="pillar-nayin" style="font-size:10px;color:#8a7a5c;margin-top:2px;">${nayin}</div>
+        </div>
+      `;
+    }).join('');
+    
+    document.getElementById('baziRizhu').textContent = 
+      `日主为${bazi.dayMaster}（${bazi.dayMasterWx}），${gender === 'male' ? '乾造' : '坤造'}，生肖${bazi.year.shengxiao}。${calendar === 'lunar' ? '（农历输入，已近似转换）' : ''}日主代表命主自身，是八字分析的核心。`;
+    
+    const wxText = Object.entries(analysis.wxCount)
+      .map(([k,v]) => `${k}${v}`)
+      .join(' · ');
+    document.getElementById('baziWuxing').textContent = wxText;
+    document.getElementById('baziWangshuai').textContent = 
+      `日主${analysis.strength}。喜用神：${analysis.isStrong ? analysis.keWo + '、' + analysis.xieWo : analysis.shengWo + '、' + bazi.dayMasterWx}；忌神：${analysis.isStrong ? bazi.dayMasterWx + '、' + analysis.shengWo : analysis.keWo + '、' + analysis.xieWo}。`;
+    
+    // 十神分析
+    const shishenText = `年柱十神：${getShiShen(bazi.dayMasterWx, bazi.year.stemWx, true)}/${getShiShen(bazi.dayMasterWx, bazi.year.branchWx, false)}；月柱十神：${getShiShen(bazi.dayMasterWx, bazi.month.stemWx, true)}/${getShiShen(bazi.dayMasterWx, bazi.month.branchWx, false)}；时柱十神：${getShiShen(bazi.dayMasterWx, bazi.hour.stemWx, true)}/${getShiShen(bazi.dayMasterWx, bazi.hour.branchWx, false)}。十神反映人与人、人与事物的关系，是八字分析的重要工具。`;
+    document.getElementById('baziShishen').textContent = shishenText;
+    
+    // 纳音
+    const nayinText = `年柱纳音：${NAYIN[bazi.year.stem + bazi.year.branch] || '—'}；月柱纳音：${NAYIN[bazi.month.stem + bazi.month.branch] || '—'}；日柱纳音：${NAYIN[bazi.day.stem + bazi.day.branch] || '—'}；时柱纳音：${NAYIN[bazi.hour.stem + bazi.hour.branch] || '—'}。纳音五行是古代命理的重要参考。`;
+    document.getElementById('baziNayin').textContent = nayinText;
+    
+    // 大运
+    document.getElementById('baziDayun').textContent = analyzeDayun(bazi, analysis);
+    
+    // 性格
+    document.getElementById('baziXingge').textContent = analyzeXingge(bazi, analysis);
+    
+    // 事业财运
+    document.getElementById('baziShiye').textContent = analyzeShiye(bazi, analysis);
+    
+    // 感情婚姻
+    document.getElementById('baziGanqing').textContent = analyzeGanqing(bazi, analysis);
+    
+    // 健康
+    document.getElementById('baziJiankang').textContent = analyzeJiankang(bazi, analysis);
+    
+    // 命局简析
+    document.getElementById('baziAnalysis').textContent = analysis.suggestion + 
+      ' 五行平衡是命局和谐的基础，过旺或过衰的五行都需要通过喜用神来调和。以上分析基于传统八字命理的简化算法，精确命理请结合真太阳时、节气交接及专业命理师的综合判断。';
+    
+    document.getElementById('baziResult').style.display = 'block';
+  }, 1500);
+});
+
+// ========== 梅花易数 ==========
+document.getElementById('meihuaType').addEventListener('change', (e) => {
+  document.getElementById('meihuaNumberInput').style.display = 
+    e.target.value === 'number' ? 'block' : 'none';
+});
+
+document.getElementById('btnMeihua').addEventListener('click', () => {
+  const type = document.getElementById('meihuaType').value;
+  const question = document.getElementById('meihuaQuestion').value.trim();
+  
+  if (!question) {
+    showToast('请输入所占之事');
+    return;
+  }
+  
+  // 浑天仪快速转动效果
+  isShaking = true;
+  showToast('正在起卦...', 1200);
+  
+  setTimeout(() => {
+    isShaking = false;
+    // 停止3秒后恢复
+    baguaPaused = true;
+    baguaRotateSpeed = 0;
+    setTimeout(() => {
+      baguaPaused = false;
+      baguaRotateTargetSpeed = 0.002;
+    }, 3000);
+    
+    let result;
+    if (type === 'time') {
+      result = meihuaTimeQigua();
+    } else {
+      const n1 = parseInt(document.getElementById('meihuaNum1').value) || 1;
+      const n2 = parseInt(document.getElementById('meihuaNum2').value) || 1;
+      const n3 = parseInt(document.getElementById('meihuaNum3').value) || 1;
+      result = meihuaNumberQigua(n1, n2, n3);
+    }
+  
+  const meihua = getMeihuaHexagram(result.upper, result.lower, result.dongYao);
+  const hexagram = meihua.hexagram;
+  const bianGua = getBianGua(hexagram);
+  
+  document.getElementById('meihuaSymbol').textContent = getGuaSymbol(hexagram.upper, hexagram.lower);
+  document.getElementById('meihuaName').textContent = hexagram.data.name;
+  document.getElementById('meihuaGuaci').textContent = hexagram.data.guaci;
+  document.getElementById('meihuaInterpret').textContent = hexagram.data.interpret;
+  document.getElementById('meihuaTiyong').textContent = meihua.tiyongText;
+  
+  // 显示六爻
+  const yaoContainer = document.getElementById('meihuaYao');
+  yaoContainer.innerHTML = '';
+  hexagram.yao.forEach((yao, i) => {
+    const div = document.createElement('div');
+    div.className = 'yao-line';
+    const yaoType = yao.value === 1 ? 'yang' : 'yin';
+    const changingClass = yao.changing ? ' changing' : '';
+    div.innerHTML = `<span class="yao-label">${YAO_NAMES[i]}</span><div class="yao-bar ${yaoType}${changingClass}"></div>`;
+    yaoContainer.appendChild(div);
+  });
+  
+  // 变卦
+  const bianDiv = document.getElementById('meihuaBianGua');
+  if (bianGua) {
+    bianDiv.style.display = 'block';
+    document.getElementById('meihuaBianSymbol').textContent = getGuaSymbol(bianGua.upper, bianGua.lower);
+    document.getElementById('meihuaBianName').textContent = bianGua.data.name;
+  } else {
+    bianDiv.style.display = 'none';
+  }
+  
+  document.getElementById('meihuaResult').style.display = 'block';
+  }, 1200);
+});
+
+// ========== 八卦点击交互 ==========
+let baguaDragStart = null;
+let baguaIsDragging = false;
+
+function initBaguaInteraction() {
+  if (!renderer || !renderer.domElement) return;
+  
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    mouseDown = true;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    
+    if (baguaGroup) {
+      const intersects = raycaster.intersectObjects(baguaGroup.children, true);
+      if (intersects.length > 0) {
+        baguaIsDragging = true;
+        baguaAutoRotate = false;
+        baguaDragStart = { x: e.clientX, y: e.clientY, rotY: baguaGroup.rotation.y, moved: false };
+        isDragging = false; // 阻止相机拖拽
+      }
+    }
+  });
+  
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (baguaIsDragging && baguaDragStart) {
+      const deltaX = e.clientX - baguaDragStart.x;
+      const deltaY = e.clientY - baguaDragStart.y;
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        baguaDragStart.moved = true;
+      }
+      baguaGroup.rotation.y = baguaDragStart.rotY + deltaX * 0.01;
+    }
+  });
+  
+  renderer.domElement.addEventListener('pointerup', () => {
+    mouseDown = false;
+    if (baguaIsDragging) {
+      baguaIsDragging = false;
+      // 延迟恢复自动旋转
+      setTimeout(() => { baguaAutoRotate = true; }, 3000);
+    }
+  });
+}
+
+// 触发浑天仪拆解
+function triggerBaguaExplode() {
+  if (baguaExplodeTimer) {
+    clearTimeout(baguaExplodeTimer);
+    baguaExplodeTimer = null;
+  }
+  // 切换状态：如果当前是展开状态则闭合，否则展开
+  if (baguaExplodeTarget > 0.5) {
+    baguaExplodeTarget = 0;
+  } else {
+    baguaExplodeTarget = 1;
+    // 3秒后自动归位
+    baguaExplodeTimer = setTimeout(() => {
+      baguaExplodeTarget = 0;
+      baguaExplodeTimer = null;
+    }, 3000);
+  }
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+
+window.addEventListener('load', () => {
+  // 先隐藏加载动画，确保页面一定能进入
+  setTimeout(() => {
+    var overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+      overlay.classList.add('fade-out');
+      setTimeout(() => { overlay.style.display = 'none'; }, 800);
+    }
+  }, 500);
+  
+  // 初始化3D场景（有错误保护）
+  try {
+    if (typeof THREE !== 'undefined') {
+      initThree();
+    } else {
+      console.warn('Three.js not loaded, 3D scene disabled');
+      var container = document.getElementById('canvas-container');
+      if (container) {
+        container.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#d4af37;text-align:center;">' +
+          '<div style="font-size:60px;margin-bottom:20px;">☯</div>' +
+          '<div style="font-size:18px;letter-spacing:4px;">玄机阁</div>' +
+          '<div style="font-size:12px;color:#8a7a5c;margin-top:8px;">3D引擎加载失败，测算功能仍可使用</div>' +
+          '</div>';
+      }
+    }
+  } catch (e) {
+    console.error('3D init error:', e);
+    var container = document.getElementById('canvas-container');
+    if (container) {
+      container.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#d4af37;text-align:center;">' +
+        '<div style="font-size:60px;margin-bottom:20px;">☯</div>' +
+        '<div style="font-size:18px;letter-spacing:4px;">玄机阁</div>' +
+        '<div style="font-size:12px;color:#8a7a5c;margin-top:8px;">3D场景初始化失败，测算功能仍可使用</div>' +
+        '</div>';
+    }
+  }
+});
+</script>
+</body>
+</html>
